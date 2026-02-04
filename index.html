@@ -1,0 +1,565 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>UK UFO / Alien Sightings Map</title>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- MarkerCluster -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+  <!-- SheetJS (XLSX) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.19.3/dist/xlsx.full.min.js"></script>
+
+  <!-- noUiSlider -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/nouislider@15.7.1/dist/nouislider.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/nouislider@15.7.1/dist/nouislider.min.js"></script>
+
+  <style>
+    :root{
+      --bg:#0b0f19;
+      --panel:#111827;
+      --panel2:#0f172a;
+      --text:#e5e7eb;
+      --muted:#9ca3af;
+      --border:rgba(255,255,255,.08);
+      --accent:#60a5fa;
+      --danger:#ef4444;
+      --ok:#22c55e;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial;}
+    header{
+      display:flex;gap:12px;align-items:center;justify-content:space-between;
+      padding:14px 16px;border-bottom:1px solid var(--border);background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,0));
+      position:sticky;top:0;z-index:10;
+    }
+    header .left{display:flex;flex-direction:column;gap:2px}
+    header h1{font-size:16px;margin:0;letter-spacing:.2px}
+    header p{font-size:12px;margin:0;color:var(--muted)}
+    header .right{display:flex;gap:8px;align-items:center}
+    .btn{
+      appearance:none;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--text);
+      padding:8px 10px;border-radius:10px;cursor:pointer;font-size:12px;
+    }
+    .btn:hover{background:rgba(255,255,255,.07)}
+    .wrap{display:grid;grid-template-columns:360px 1fr;min-height:calc(100vh - 58px)}
+    #panel{
+      border-right:1px solid var(--border);
+      background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,0));
+      padding:14px;
+      overflow:auto;
+    }
+    #map{height:calc(100vh - 58px);width:100%}
+    .card{background:rgba(17,24,39,.7);border:1px solid var(--border);border-radius:14px;padding:12px;margin-bottom:12px}
+    .row{display:flex;gap:10px;align-items:center}
+    .row > *{flex:1}
+    label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+    input, select{
+      width:100%;padding:9px 10px;border-radius:12px;border:1px solid var(--border);
+      background:rgba(0,0,0,.25);color:var(--text);outline:none;
+    }
+    input::placeholder{color:#6b7280}
+    .kpis{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .kpi{border:1px solid var(--border);border-radius:14px;padding:10px;background:rgba(0,0,0,.18)}
+    .kpi .big{font-size:18px;font-weight:700}
+    .kpi .small{font-size:12px;color:var(--muted)}
+    .status{font-size:12px;color:var(--muted);display:flex;gap:8px;align-items:center}
+    .dot{width:8px;height:8px;border-radius:50%}
+    .dot.ok{background:var(--ok)}
+    .dot.warn{background:#f59e0b}
+    .dot.bad{background:var(--danger)}
+    #list{max-height:48vh;overflow:auto;padding-right:4px}
+    .item{padding:10px;border:1px solid var(--border);border-radius:14px;background:rgba(0,0,0,.18);margin-bottom:10px;cursor:pointer}
+    .item:hover{background:rgba(0,0,0,.28)}
+    .item .title{font-weight:650;font-size:13px;margin:0 0 4px 0}
+    .item .meta{font-size:12px;color:var(--muted);margin:0}
+    .pill{display:inline-block;font-size:11px;padding:3px 8px;border-radius:999px;border:1px solid var(--border);color:var(--muted);margin-right:6px}
+    .slider-wrap{padding:6px 2px 2px}
+    .slider-meta{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:8px}
+    .progress{
+      height:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;border:1px solid var(--border)
+    }
+    .progress > div{height:100%;width:0;background:linear-gradient(90deg, var(--accent), #a78bfa)}
+    a{color:var(--accent);text-decoration:none}
+    a:hover{text-decoration:underline}
+    .hint{font-size:12px;color:var(--muted);line-height:1.35}
+    .smallbtn{font-size:11px;padding:6px 8px;border-radius:10px}
+  </style>
+</head>
+
+<body>
+<header>
+  <div class="left">
+    <h1>UK UFO / “Alien” Sightings (Curated)</h1>
+    <p>Data source: <strong>uk_ufo_sightings_uk.xlsx</strong> (edit the Excel, refresh the page).</p>
+  </div>
+  <div class="right">
+    <button class="btn" id="fitBtn">Fit to markers</button>
+    <button class="btn" id="resetBtn">Reset filters</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <aside id="panel">
+    <div class="card">
+      <div class="kpis">
+        <div class="kpi">
+          <div class="big" id="kpiTotal">—</div>
+          <div class="small">Records loaded</div>
+        </div>
+        <div class="kpi">
+          <div class="big" id="kpiShown">—</div>
+          <div class="small">Matching filters</div>
+        </div>
+      </div>
+      <div style="height:10px"></div>
+      <div class="status">
+        <span class="dot warn" id="statusDot"></span>
+        <span id="statusText">Loading spreadsheet…</span>
+      </div>
+      <div style="height:10px"></div>
+      <div class="progress" title="Geocoding progress (cached results skip the queue)">
+        <div id="progBar"></div>
+      </div>
+      <div style="height:10px"></div>
+      <div class="hint">
+        Geocoding uses OpenStreetMap Nominatim. Results are cached in your browser to avoid repeat lookups.
+        If you move the Excel file or rename locations, use <button class="btn smallbtn" id="clearCacheBtn">Clear cache</button>.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <div>
+          <label for="search">Search</label>
+          <input id="search" placeholder="e.g., Rendlesham, Warwick, triangle…" />
+        </div>
+      </div>
+      <div style="height:12px"></div>
+      <div class="row">
+        <div>
+          <label for="region">Region</label>
+          <select id="region">
+            <option value="">All</option>
+          </select>
+        </div>
+        <div>
+          <label for="minCred">Min credibility</label>
+          <select id="minCred">
+            <option value="1">1+</option>
+            <option value="2">2+</option>
+            <option value="3" selected>3+</option>
+            <option value="4">4+</option>
+            <option value="5">5</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="height:12px"></div>
+      <label>Year range</label>
+      <div class="slider-wrap"><div id="yearSlider"></div></div>
+      <div class="slider-meta"><span id="yearMin">—</span><span id="yearMax">—</span></div>
+    </div>
+
+    <div class="card">
+      <div class="row" style="justify-content:space-between;align-items:baseline">
+        <div style="flex:1">
+          <div style="font-weight:700;margin-bottom:6px">Results</div>
+          <div class="hint" id="resultsHint">Click an item to zoom and open its popup.</div>
+        </div>
+      </div>
+      <div style="height:8px"></div>
+      <div id="list"></div>
+    </div>
+
+    <div class="card">
+      <div style="font-weight:700;margin-bottom:6px">Make it more interesting (ideas)</div>
+      <div class="hint">
+        • Add a “case page” route (e.g. <span class="pill">/case/rendlesham</span>) with longer write‑ups and images.<br/>
+        • Add “witness types” icons and a “case strength” score breakdown.<br/>
+        • Add a timeline “play” mode that animates sightings by year.<br/>
+        • Add an “investigation view” showing MoD/National Archives file references and document thumbnails.
+      </div>
+    </div>
+  </aside>
+
+  <main>
+    <div id="map"></div>
+  </main>
+</div>
+
+<script>
+(function(){
+  const XLSX_PATH = './uk_ufo_sightings_uk.xlsx';
+  const CACHE_KEY = 'ufo_geo_cache_v1';
+
+  const els = {
+    statusDot: document.getElementById('statusDot'),
+    statusText: document.getElementById('statusText'),
+    progBar: document.getElementById('progBar'),
+    kpiTotal: document.getElementById('kpiTotal'),
+    kpiShown: document.getElementById('kpiShown'),
+    region: document.getElementById('region'),
+    minCred: document.getElementById('minCred'),
+    search: document.getElementById('search'),
+    list: document.getElementById('list'),
+    fitBtn: document.getElementById('fitBtn'),
+    resetBtn: document.getElementById('resetBtn'),
+    clearCacheBtn: document.getElementById('clearCacheBtn'),
+    yearSlider: document.getElementById('yearSlider'),
+    yearMin: document.getElementById('yearMin'),
+    yearMax: document.getElementById('yearMax')
+  };
+
+  // Map
+  const map = L.map('map', { zoomControl: true }).setView([54.5, -3.0], 6);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 18,
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+
+  const cluster = L.markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 50 });
+  map.addLayer(cluster);
+
+  // Cache
+  function loadCache(){
+    try { return JSON.parse(localStorage.getItem(CACHE_KEY) || '{}'); }
+    catch(e){ return {}; }
+  }
+  function saveCache(cache){
+    localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+  }
+  let geoCache = loadCache();
+
+  // State
+  let records = [];
+  let markersById = new Map();
+  let currentYearMin = 1900, currentYearMax = 2026;
+
+  function setStatus(type, text){
+    // type: ok | warn | bad
+    els.statusDot.classList.remove('ok','warn','bad');
+    els.statusDot.classList.add(type);
+    els.statusText.textContent = text;
+  }
+  function setProgress(done, total){
+    const pct = total ? Math.round((done/total)*100) : 0;
+    els.progBar.style.width = pct + '%';
+  }
+
+  function safeYear(dateStr){
+    if(!dateStr) return null;
+    const m = String(dateStr).match(/(19\d{2}|20\d{2})/);
+    return m ? parseInt(m[1],10) : null;
+  }
+
+  function parseSources(src){
+    if(!src) return [];
+    return String(src).split(/\n+/).map(s=>s.trim()).filter(Boolean);
+  }
+
+  function makePopupHTML(r){
+    const sources = parseSources(r.sources);
+    const srcHtml = sources.length
+      ? '<div style="margin-top:8px"><div style="font-weight:700;margin-bottom:4px">Sources</div>' +
+        sources.map(u => `<div style="margin:2px 0"><a href="${u}" target="_blank" rel="noopener">${u}</a></div>`).join('') +
+        '</div>'
+      : '';
+
+    return `
+      <div style="min-width:260px;max-width:360px">
+        <div style="font-weight:800;font-size:14px;margin-bottom:4px">${escapeHtml(r.case)}</div>
+        <div style="color:#9ca3af;font-size:12px;margin-bottom:8px">${escapeHtml(r.date || '')}</div>
+        <div style="margin-bottom:8px">
+          <span class="pill">${escapeHtml(r.region || '—')}</span>
+          <span class="pill">Credibility: ${escapeHtml(String(r.cred || '—'))}</span>
+        </div>
+        <div style="font-size:12px;line-height:1.4;color:#e5e7eb">
+          <div><b>Location:</b> ${escapeHtml(r.location || '—')}</div>
+          <div style="margin-top:6px"><b>Witness:</b> ${escapeHtml(r.witness || '—')}</div>
+          <div style="margin-top:6px"><b>Evidence:</b> ${escapeHtml(r.evidence || '—')}</div>
+          <div style="margin-top:6px"><b>Status:</b> ${escapeHtml(r.status || '—')}</div>
+          <div style="margin-top:8px">${escapeHtml(r.summary || '')}</div>
+          <div style="margin-top:8px;color:#9ca3af">${escapeHtml(r.why || '')}</div>
+          ${srcHtml}
+        </div>
+      </div>
+    `;
+  }
+
+  function escapeHtml(str){
+    return String(str ?? '').replace(/[&<>"']/g, s => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[s]));
+  }
+
+  // Geocoding (Nominatim)
+  async function geocodeLocation(location){
+    const key = location.trim().toLowerCase();
+    if(geoCache[key]) return geoCache[key];
+
+    const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=gb&q=' + encodeURIComponent(location);
+    const res = await fetch(url, { headers: { 'Accept': 'application/json' }});
+    if(!res.ok) throw new Error('Geocode failed: ' + res.status);
+    const data = await res.json();
+    if(!data || !data[0]) throw new Error('No match for: ' + location);
+    const out = { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon), display: data[0].display_name };
+    geoCache[key] = out;
+    saveCache(geoCache);
+    return out;
+  }
+
+  function markerColorByCred(cred){
+    const c = Number(cred || 0);
+    if(c >= 4) return '#22c55e';
+    if(c >= 3) return '#60a5fa';
+    return '#f59e0b';
+  }
+
+  function makeCircleMarker(lat, lon, cred){
+    const color = markerColorByCred(cred);
+    return L.circleMarker([lat, lon], {
+      radius: 7,
+      weight: 2,
+      color: color,
+      fillColor: color,
+      fillOpacity: 0.25
+    });
+  }
+
+  function clearMarkers(){
+    cluster.clearLayers();
+    markersById.clear();
+  }
+
+  function matchesFilters(r){
+    const q = els.search.value.trim().toLowerCase();
+    const reg = els.region.value;
+    const minCred = parseInt(els.minCred.value, 10);
+    const y = r.year || 0;
+
+    if(q){
+      const hay = [r.case,r.location,r.region,r.summary,r.witness,r.evidence,r.status].join(' ').toLowerCase();
+      if(!hay.includes(q)) return false;
+    }
+    if(reg && (r.region || '') !== reg) return false;
+    if((r.cred || 0) < minCred) return false;
+    if(y && (y < currentYearMin || y > currentYearMax)) return false;
+
+    return true;
+  }
+
+  function render(){
+    clearMarkers();
+    els.list.innerHTML = '';
+
+    const shown = records.filter(matchesFilters);
+    els.kpiShown.textContent = shown.length;
+
+    // Add markers
+    for(const r of shown){
+      if(!r.lat || !r.lon) continue;
+      const m = makeCircleMarker(r.lat, r.lon, r.cred);
+      m.bindPopup(makePopupHTML(r), { maxWidth: 420 });
+      m.on('click', () => highlightListItem(r.id));
+      cluster.addLayer(m);
+      markersById.set(r.id, m);
+    }
+
+    // List
+    for(const r of shown.slice(0, 250)){
+      const div = document.createElement('div');
+      div.className = 'item';
+      div.dataset.id = r.id;
+      div.innerHTML = `
+        <p class="title">${escapeHtml(r.case)}</p>
+        <p class="meta">${escapeHtml(r.location)} • ${escapeHtml(r.date || '')}</p>
+        <div style="margin-top:8px">
+          <span class="pill">${escapeHtml(r.region || '—')}</span>
+          <span class="pill">Cred: ${escapeHtml(String(r.cred || '—'))}</span>
+          <span class="pill">${escapeHtml(r.status || '—')}</span>
+        </div>
+      `;
+      div.addEventListener('click', () => {
+        const mk = markersById.get(r.id);
+        if(mk){
+          map.setView(mk.getLatLng(), Math.max(map.getZoom(), 9));
+          mk.openPopup();
+        }
+      });
+      els.list.appendChild(div);
+    }
+
+    if(shown.length === 0){
+      const empty = document.createElement('div');
+      empty.className = 'hint';
+      empty.textContent = 'No results match your filters.';
+      els.list.appendChild(empty);
+    }
+  }
+
+  function highlightListItem(id){
+    // Basic highlight by scrolling into view
+    const el = els.list.querySelector(`.item[data-id="${id}"]`);
+    if(el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function fitToMarkers(){
+    const layers = cluster.getLayers();
+    if(!layers.length) return;
+    const group = L.featureGroup(layers);
+    map.fitBounds(group.getBounds().pad(0.2));
+  }
+
+  // Year slider
+  function initYearSlider(minY, maxY){
+    currentYearMin = minY;
+    currentYearMax = maxY;
+
+    if(els.yearSlider.noUiSlider){
+      els.yearSlider.noUiSlider.destroy();
+    }
+    noUiSlider.create(els.yearSlider, {
+      start: [minY, maxY],
+      connect: true,
+      step: 1,
+      range: { min: minY, max: maxY },
+      format: {
+        to: v => Math.round(v),
+        from: v => parseInt(v,10)
+      }
+    });
+    els.yearMin.textContent = minY;
+    els.yearMax.textContent = maxY;
+
+    els.yearSlider.noUiSlider.on('update', (values) => {
+      currentYearMin = parseInt(values[0],10);
+      currentYearMax = parseInt(values[1],10);
+      els.yearMin.textContent = currentYearMin;
+      els.yearMax.textContent = currentYearMax;
+      render();
+    });
+  }
+
+  function populateRegionOptions(){
+    const set = new Set(records.map(r => r.region).filter(Boolean));
+    const regions = Array.from(set).sort();
+    els.region.innerHTML = '<option value="">All</option>' + regions.map(r => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join('');
+  }
+
+  // Load spreadsheet
+  async function loadSpreadsheet(){
+    setStatus('warn','Loading spreadsheet…');
+    const res = await fetch(XLSX_PATH);
+    if(!res.ok) throw new Error('Could not fetch ' + XLSX_PATH + ' (HTTP ' + res.status + ')');
+    const buf = await res.arrayBuffer();
+    const wb = XLSX.read(buf, { type: 'array' });
+    const sheet = wb.Sheets['Sightings'];
+    if(!sheet) throw new Error('Sheet "Sightings" not found in spreadsheet.');
+    const json = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+    // Normalise
+    records = json.map((r, idx) => ({
+      id: idx,
+      case: r['Case'],
+      date: r['Date'],
+      location: r['Location'],
+      region: r['Region'],
+      witness: r['Witness profile'],
+      evidence: r['Evidence'],
+      summary: r['Summary'],
+      status: r['Status'],
+      cred: Number(r['Credibility (1-5)'] || 0),
+      why: r['Why considered reputable'],
+      sources: r['Sources'],
+      year: safeYear(r['Date']),
+      lat: null,
+      lon: null
+    }));
+
+    els.kpiTotal.textContent = records.length;
+
+    // Year range from data
+    const years = records.map(r => r.year).filter(Boolean);
+    const minY = years.length ? Math.min(...years) : 1950;
+    const maxY = years.length ? Math.max(...years) : new Date().getFullYear();
+    initYearSlider(minY, maxY);
+
+    populateRegionOptions();
+    setStatus('warn','Geocoding locations (cached results are instant)…');
+
+    // Geocode with polite pacing
+    let done = 0;
+    setProgress(0, records.length);
+
+    for(const r of records){
+      if(!r.location){ done++; setProgress(done, records.length); continue; }
+      const cacheKey = r.location.trim().toLowerCase();
+      if(geoCache[cacheKey]){
+        r.lat = geoCache[cacheKey].lat;
+        r.lon = geoCache[cacheKey].lon;
+        done++; setProgress(done, records.length);
+        continue;
+      }
+      try{
+        const g = await geocodeLocation(r.location + ', UK');
+        r.lat = g.lat; r.lon = g.lon;
+      }catch(e){
+        // keep record but no marker
+        console.warn(e);
+      }
+      done++; setProgress(done, records.length);
+      // Nominatim policy: 1 request/second (be gentle)
+      await new Promise(res => setTimeout(res, 1100));
+    }
+
+    setStatus('ok','Loaded. Adjust filters or click a case.');
+    render();
+    fitToMarkers();
+  }
+
+  // Wire up events
+  ['input','change'].forEach(evt => {
+    els.search.addEventListener(evt, () => render());
+    els.region.addEventListener(evt, () => render());
+    els.minCred.addEventListener(evt, () => render());
+  });
+
+  els.fitBtn.addEventListener('click', fitToMarkers);
+  els.resetBtn.addEventListener('click', () => {
+    els.search.value = '';
+    els.region.value = '';
+    els.minCred.value = '3';
+    // reset slider to full range
+    const slider = els.yearSlider.noUiSlider;
+    if(slider){
+      const r = slider.options.range;
+      slider.set([r.min, r.max]);
+    }
+    render();
+    fitToMarkers();
+  });
+
+  els.clearCacheBtn.addEventListener('click', () => {
+    localStorage.removeItem(CACHE_KEY);
+    geoCache = {};
+    setStatus('warn','Cache cleared. Refresh to re-geocode.');
+    setProgress(0, 1);
+  });
+
+  // Kick off
+  loadSpreadsheet().catch(err => {
+    console.error(err);
+    setStatus('bad', err.message || String(err));
+  });
+})();
+</script>
+</body>
+</html>
