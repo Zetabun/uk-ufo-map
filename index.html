@@ -90,6 +90,39 @@
     a:hover{text-decoration:underline}
     .hint{font-size:12px;color:var(--muted);line-height:1.35}
     .smallbtn{font-size:11px;padding:6px 8px;border-radius:10px}
+	
+	/* Make Leaflet popups readable (force light-theme text) */
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: #ffffff !important;
+  color: #111827 !important;
+}
+
+.leaflet-popup-content,
+.leaflet-popup-content * {
+  color: #111827 !important;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.leaflet-popup-content a {
+  color: #1d4ed8 !important;
+  text-decoration: underline;
+  word-break: break-word;
+}
+
+.leaflet-popup-content b,
+.leaflet-popup-content strong {
+  color: #111827 !important;
+}
+
+.leaflet-popup-close-button {
+  color: #111827 !important;
+}
+
+	
+	
+	
   </style>
 </head>
 
