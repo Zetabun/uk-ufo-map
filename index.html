@@ -593,7 +593,14 @@ function highlightListItem(id){
       cred: Number(getField(r, ['Credibility (1-5)','Credibility','credibility']) || 0),
       why: getField(r, ['Why considered reputable','Why','why']),
       // Weather columns (support your new naming variations)
-      weather: getField(r, ['Weather','weather','Weather summary','Weather Summary','Historical weather','Historic weather','Weather (historic)','Weather (historical)']),
+     weather: (() => {
+  const w = String(getField(r, ['Weather','weather','Weather summary','Weather Summary','Historical weather','Historic weather','Weather (historic)','Weather (historical)']) || '').trim();
+  // If it looks like a date/date-range, ignore it (prevents Date_ISO being shown as Weather)
+  if (/^\d{4}-\d{2}(-\d{2})?(?:\s+to\s+\d{4}-\d{2}(-\d{2})?)?$/i.test(w)) return '';
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}(?:\s+to\s+\d{1,2}\/\d{1,2}\/\d{4})?$/i.test(w)) return '';
+  return w;
+})(),
+
       weather_source: getField(r, ['Weather source','weather source','Weather Source','Weather data source','Weather Data Source']),
       sources: getField(r, ['Sources','sources']),
       year: safeYear(getField(r, ['Date_ISO','date_iso','Date','date'])),
