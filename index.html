@@ -429,10 +429,20 @@
     }
   }
 
-  function highlightListItem(id){
-    const el = els.list.querySelector(`.item[data-id="${id}"]`);
-    if(el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }
+function highlightListItem(id){
+  const el = els.list.querySelector(`.item[data-id="${id}"]`);
+  if(!el) return;
+
+  // Scroll ONLY inside the results container (prevents page jumping)
+  const container = els.list; // this is the scrollable area
+  const top = el.offsetTop - (container.clientHeight / 2) + (el.clientHeight / 2);
+
+  container.scrollTo({
+    top: Math.max(0, top),
+    behavior: 'smooth'
+  });
+}
+
 
   function fitToMarkers(){
     const layers = cluster.getLayers();
