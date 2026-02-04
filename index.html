@@ -13,9 +13,8 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-
-  <!-- SheetJS (XLSX) -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.19.3/dist/xlsx.full.min.js"></script>
+<!-- PapaParse (CSV) -->
+  <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
 
   <!-- noUiSlider -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/nouislider@15.7.1/dist/nouislider.min.css">
@@ -98,7 +97,7 @@
 <header>
   <div class="left">
     <h1>UK UFO / “Alien” Sightings (Curated)</h1>
-    <p>Data source: <strong>uk_ufo_sightings_uk.xlsx</strong> (edit the Excel, refresh the page).</p>
+    <p>Data source: <strong>Google Sheets (published CSV)</strong> (edit the sheet, refresh the page).</p>
   </div>
   <div class="right">
     <button class="btn" id="fitBtn">Fit to markers</button>
@@ -125,13 +124,12 @@
         <span id="statusText">Loading spreadsheet…</span>
       </div>
       <div style="height:10px"></div>
-      <div class="progress" title="Geocoding progress (cached results skip the queue)">
+      <div class="progress" title="Load progress">
         <div id="progBar"></div>
       </div>
       <div style="height:10px"></div>
       <div class="hint">
-        Geocoding uses OpenStreetMap Nominatim. Results are cached in your browser to avoid repeat lookups.
-        If you move the Excel file or rename locations, use <button class="btn smallbtn" id="clearCacheBtn">Clear cache</button>.
+        Markers plot from <b>lat</b>/<b>lon</b> columns in your Google Sheet. If a row is missing coordinates, the site will try to geocode the <b>Location</b> and cache the result in your browser.
       </div>
     </div>
 
@@ -197,8 +195,9 @@
 
 <script>
 (function(){
-  const XLSX_PATH = './uk_ufo_sightings_uk.xlsx';
-  const CACHE_KEY = 'ufo_geo_cache_v1';
+  // ==== CONFIG ====
+  // Your published Google Sheets CSV URL:
+  const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRlnAA5SQ4qpJk9G7WUISgxjrDdujgCbUkl1bz8PekNOXs5jGtcU1HbTcEd0UohrJT7zOEoRAadEmZ_/pub?output=csv';
 
   const els = {
     statusDot: document.getElementById('statusDot'),
@@ -212,7 +211,6 @@
     list: document.getElementById('list'),
     fitBtn: document.getElementById('fitBtn'),
     resetBtn: document.getElementById('resetBtn'),
-    clearCacheBtn: document.getElementById('clearCacheBtn'),
     yearSlider: document.getElementById('yearSlider'),
     yearMin: document.getElementById('yearMin'),
     yearMax: document.getElementById('yearMax')
@@ -228,23 +226,12 @@
   const cluster = L.markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 50 });
   map.addLayer(cluster);
 
-  // Cache
-  function loadCache(){
-    try { return JSON.parse(localStorage.getItem(CACHE_KEY) || '{}'); }
-    catch(e){ return {}; }
-  }
-  function saveCache(cache){
-    localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
-  }
-  let geoCache = loadCache();
-
   // State
   let records = [];
   let markersById = new Map();
-  let currentYearMin = 1900, currentYearMax = 2026;
+  let currentYearMin = 1900, currentYearMax = 2100;
 
   function setStatus(type, text){
-    // type: ok | warn | bad
     els.statusDot.classList.remove('ok','warn','bad');
     els.statusDot.classList.add(type);
     els.statusText.textContent = text;
@@ -256,20 +243,26 @@
 
   function safeYear(dateStr){
     if(!dateStr) return null;
-    const m = String(dateStr).match(/(19\d{2}|20\d{2})/);
+    const m = String(dateStr).match(/\b(18\d{2}|19\d{2}|20\d{2})\b/);
     return m ? parseInt(m[1],10) : null;
   }
 
   function parseSources(src){
     if(!src) return [];
-    return String(src).split(/\n+/).map(s=>s.trim()).filter(Boolean);
+    return String(src).split(/[\n;]+/).map(s=>s.trim()).filter(Boolean);
+  }
+
+  function escapeHtml(str){
+    return String(str ?? '').replace(/[&<>"']/g, s => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[s]));
   }
 
   function makePopupHTML(r){
     const sources = parseSources(r.sources);
     const srcHtml = sources.length
       ? '<div style="margin-top:8px"><div style="font-weight:700;margin-bottom:4px">Sources</div>' +
-        sources.map(u => `<div style="margin:2px 0"><a href="${u}" target="_blank" rel="noopener">${u}</a></div>`).join('') +
+        sources.map(u => `<div style="margin:2px 0"><a href="${escapeHtml(u)}" target="_blank" rel="noopener">${escapeHtml(u)}</a></div>`).join('') +
         '</div>'
       : '';
 
@@ -292,28 +285,6 @@
         </div>
       </div>
     `;
-  }
-
-  function escapeHtml(str){
-    return String(str ?? '').replace(/[&<>"']/g, s => ({
-      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-    }[s]));
-  }
-
-  // Geocoding (Nominatim)
-  async function geocodeLocation(location){
-    const key = location.trim().toLowerCase();
-    if(geoCache[key]) return geoCache[key];
-
-    const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=gb&q=' + encodeURIComponent(location);
-    const res = await fetch(url, { headers: { 'Accept': 'application/json' }});
-    if(!res.ok) throw new Error('Geocode failed: ' + res.status);
-    const data = await res.json();
-    if(!data || !data[0]) throw new Error('No match for: ' + location);
-    const out = { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon), display: data[0].display_name };
-    geoCache[key] = out;
-    saveCache(geoCache);
-    return out;
   }
 
   function markerColorByCred(cred){
@@ -363,9 +334,8 @@
     const shown = records.filter(matchesFilters);
     els.kpiShown.textContent = shown.length;
 
-    // Add markers
     for(const r of shown){
-      if(!r.lat || !r.lon) continue;
+      if(!Number.isFinite(r.lat) || !Number.isFinite(r.lon)) continue;
       const m = makeCircleMarker(r.lat, r.lon, r.cred);
       m.bindPopup(makePopupHTML(r), { maxWidth: 420 });
       m.on('click', () => highlightListItem(r.id));
@@ -373,7 +343,6 @@
       markersById.set(r.id, m);
     }
 
-    // List
     for(const r of shown.slice(0, 250)){
       const div = document.createElement('div');
       div.className = 'item';
@@ -406,7 +375,6 @@
   }
 
   function highlightListItem(id){
-    // Basic highlight by scrolling into view
     const el = els.list.querySelector(`.item[data-id="${id}"]`);
     if(el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
@@ -418,7 +386,6 @@
     map.fitBounds(group.getBounds().pad(0.2));
   }
 
-  // Year slider
   function initYearSlider(minY, maxY){
     currentYearMin = minY;
     currentYearMax = maxY;
@@ -431,10 +398,7 @@
       connect: true,
       step: 1,
       range: { min: minY, max: maxY },
-      format: {
-        to: v => Math.round(v),
-        from: v => parseInt(v,10)
-      }
+      format: { to: v => Math.round(v), from: v => parseInt(v,10) }
     });
     els.yearMin.textContent = minY;
     els.yearMax.textContent = maxY;
@@ -454,78 +418,171 @@
     els.region.innerHTML = '<option value="">All</option>' + regions.map(r => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join('');
   }
 
-  // Load spreadsheet
-  async function loadSpreadsheet(){
-    setStatus('warn','Loading spreadsheet…');
-    const res = await fetch(XLSX_PATH);
-    if(!res.ok) throw new Error('Could not fetch ' + XLSX_PATH + ' (HTTP ' + res.status + ')');
-    const buf = await res.arrayBuffer();
-    const wb = XLSX.read(buf, { type: 'array' });
-    const sheet = wb.Sheets['Sightings'];
-    if(!sheet) throw new Error('Sheet "Sightings" not found in spreadsheet.');
-    const json = XLSX.utils.sheet_to_json(sheet, { defval: '' });
-
-    // Normalise
-    records = json.map((r, idx) => ({
+  function normaliseRow(r, idx){
+    const lat = r.lat ?? r.Latitude ?? r.latitude ?? '';
+    const lon = r.lon ?? r.Longitude ?? r.longitude ?? r.lng ?? r.Lng ?? '';
+    return {
       id: idx,
-      case: r['Case'],
-      date: r['Date'],
-      location: r['Location'],
-      region: r['Region'],
-      witness: r['Witness profile'],
-      evidence: r['Evidence'],
-      summary: r['Summary'],
-      status: r['Status'],
-      cred: Number(r['Credibility (1-5)'] || 0),
-      why: r['Why considered reputable'],
-      sources: r['Sources'],
-      year: safeYear(r['Date']),
-      lat: null,
-      lon: null
-    }));
-
-    els.kpiTotal.textContent = records.length;
-
-    // Year range from data
-    const years = records.map(r => r.year).filter(Boolean);
-    const minY = years.length ? Math.min(...years) : 1950;
-    const maxY = years.length ? Math.max(...years) : new Date().getFullYear();
-    initYearSlider(minY, maxY);
-
-    populateRegionOptions();
-    setStatus('warn','Geocoding locations (cached results are instant)…');
-
-    // Geocode with polite pacing
-    let done = 0;
-    setProgress(0, records.length);
-
-    for(const r of records){
-      if(!r.location){ done++; setProgress(done, records.length); continue; }
-      const cacheKey = r.location.trim().toLowerCase();
-      if(geoCache[cacheKey]){
-        r.lat = geoCache[cacheKey].lat;
-        r.lon = geoCache[cacheKey].lon;
-        done++; setProgress(done, records.length);
-        continue;
-      }
-      try{
-        const g = await geocodeLocation(r.location + ', UK');
-        r.lat = g.lat; r.lon = g.lon;
-      }catch(e){
-        // keep record but no marker
-        console.warn(e);
-      }
-      done++; setProgress(done, records.length);
-      // Nominatim policy: 1 request/second (be gentle)
-      await new Promise(res => setTimeout(res, 1100));
-    }
-
-    setStatus('ok','Loaded. Adjust filters or click a case.');
-    render();
-    fitToMarkers();
+      case: r['Case'] ?? r['case'] ?? '',
+      date: r['Date'] ?? r['date'] ?? '',
+      location: r['Location'] ?? r['location'] ?? '',
+      region: r['Region'] ?? r['region'] ?? '',
+      witness: r['Witness profile'] ?? r['Witness'] ?? r['witness'] ?? '',
+      evidence: r['Evidence'] ?? r['evidence'] ?? '',
+      summary: r['Summary'] ?? r['summary'] ?? '',
+      status: r['Status'] ?? r['status'] ?? '',
+      cred: Number(r['Credibility (1-5)'] ?? r['Credibility'] ?? r['credibility'] ?? 0),
+      why: r['Why considered reputable'] ?? r['Why'] ?? r['why'] ?? '',
+      sources: r['Sources'] ?? r['sources'] ?? '',
+      year: safeYear(r['Date'] ?? r['date'] ?? ''),
+      lat: Number(lat),
+      lon: Number(lon)
+    };
   }
 
-  // Wire up events
+  
+  // ==== Optional fallback geocoding (only if lat/lon missing) ====
+  // Uses OpenStreetMap Nominatim. Please be considerate (rate-limited + cached).
+  const GEO_CACHE_KEY = 'ufo_geo_cache_v1';
+  const GEO_DELAY_MS = 1100; // ~1 req/sec
+  const GEO_EMAIL = ''; // optional: set to an email for Nominatim identify param if you want
+
+  function loadGeoCache(){
+    try { return JSON.parse(localStorage.getItem(GEO_CACHE_KEY) || '{}'); }
+    catch { return {}; }
+  }
+  function saveGeoCache(cache){
+    try { localStorage.setItem(GEO_CACHE_KEY, JSON.stringify(cache)); } catch {}
+  }
+  function cacheKeyForLocation(loc){
+    return String(loc || '').trim().toLowerCase();
+  }
+  function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
+
+  async function geocodeLocation(loc){
+    const q = String(loc || '').trim();
+    if(!q) return null;
+
+    const params = new URLSearchParams({
+      format: 'json',
+      q,
+      limit: '1',
+      addressdetails: '0'
+    });
+    if (GEO_EMAIL) params.set('email', GEO_EMAIL);
+
+    const url = 'https://nominatim.openstreetmap.org/search?' + params.toString();
+    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    if(!res.ok) throw new Error('Geocoding HTTP ' + res.status);
+    const data = await res.json();
+    if(!Array.isArray(data) || !data.length) return null;
+
+    const hit = data[0];
+    const lat = Number(hit.lat);
+    const lon = Number(hit.lon);
+    if(!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    return { lat, lon };
+  }
+
+  async function geocodeMissingCoords(){
+    const cache = loadGeoCache();
+
+    // Apply cache first
+    for(const r of records){
+      if(Number.isFinite(r.lat) && Number.isFinite(r.lon)) continue;
+      const key = cacheKeyForLocation(r.location);
+      if(key && cache[key]){
+        r.lat = Number(cache[key].lat);
+        r.lon = Number(cache[key].lon);
+      }
+    }
+
+    const queue = records.filter(r => (!Number.isFinite(r.lat) || !Number.isFinite(r.lon)) && String(r.location || '').trim());
+    if(!queue.length) return;
+
+    setStatus('warn', `Geocoding ${queue.length} location(s)… (cached where possible)`);
+    let done = 0;
+
+    for(const r of queue){
+      try{
+        const key = cacheKeyForLocation(r.location);
+        // Double-check cache hasn't been filled during the run
+        if(key && cache[key]){
+          r.lat = Number(cache[key].lat);
+          r.lon = Number(cache[key].lon);
+        } else {
+          const got = await geocodeLocation(r.location);
+          if(got){
+            r.lat = got.lat;
+            r.lon = got.lon;
+            if(key) cache[key] = got;
+            saveGeoCache(cache);
+          }
+          await sleep(GEO_DELAY_MS);
+        }
+      } catch(e){
+        console.warn('Geocode failed for:', r.location, e);
+        await sleep(GEO_DELAY_MS);
+      } finally {
+        done += 1;
+        // Use progress bar to show geocoding progress
+        setProgress(done, queue.length);
+        // Re-render progressively so markers appear as we go
+        render();
+      }
+    }
+
+    // Final status
+    const stillMissing = records.filter(r => !Number.isFinite(r.lat) || !Number.isFinite(r.lon)).length;
+    if(stillMissing){
+      setStatus('warn', `Loaded ${records.length} rows. ${stillMissing} still missing lat/lon (won’t plot).`);
+    } else {
+      setStatus('ok', `Loaded ${records.length} rows. Ready.`);
+    }
+  }
+
+async function loadFromGoogleSheets(){
+    setStatus('warn','Loading Google Sheet…');
+    setProgress(0, 1);
+
+    const url = SHEET_CSV_URL + (SHEET_CSV_URL.includes('?') ? '&' : '?') + 't=' + Date.now();
+
+    return new Promise((resolve, reject) => {
+      Papa.parse(url, {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+          const raw = Array.isArray(results.data) ? results.data : [];
+          records = raw.map((row, idx) => normaliseRow(row, idx)).filter(r => (r.case || r.location || r.summary));
+          els.kpiTotal.textContent = records.length;
+
+          const years = records.map(r => r.year).filter(Boolean);
+          const minY = years.length ? Math.min(...years) : 1950;
+          const maxY = years.length ? Math.max(...years) : new Date().getFullYear();
+          initYearSlider(minY, maxY);
+
+          populateRegionOptions();
+
+          setProgress(10, 10);
+
+          const missingCoords = records.filter(r => !Number.isFinite(r.lat) || !Number.isFinite(r.lon)).length;
+          if(missingCoords){
+            setStatus('warn', `Loaded ${records.length} rows. ${missingCoords} missing lat/lon (won't plot).`);
+          } else {
+            setStatus('ok', `Loaded ${records.length} rows. Ready.`);
+          }
+
+          render();
+          fitToMarkers();
+          // Fallback: geocode rows missing lat/lon (rate-limited + cached)
+          geocodeMissingCoords().finally(() => resolve());
+        },
+        error: (err) => reject(err)
+      });
+    });
+  }
+
   ['input','change'].forEach(evt => {
     els.search.addEventListener(evt, () => render());
     els.region.addEventListener(evt, () => render());
@@ -537,7 +594,6 @@
     els.search.value = '';
     els.region.value = '';
     els.minCred.value = '3';
-    // reset slider to full range
     const slider = els.yearSlider.noUiSlider;
     if(slider){
       const r = slider.options.range;
@@ -547,17 +603,9 @@
     fitToMarkers();
   });
 
-  els.clearCacheBtn.addEventListener('click', () => {
-    localStorage.removeItem(CACHE_KEY);
-    geoCache = {};
-    setStatus('warn','Cache cleared. Refresh to re-geocode.');
-    setProgress(0, 1);
-  });
-
-  // Kick off
-  loadSpreadsheet().catch(err => {
+  loadFromGoogleSheets().catch(err => {
     console.error(err);
-    setStatus('bad', err.message || String(err));
+    setStatus('bad', (err && err.message) ? err.message : String(err));
   });
 })();
 </script>
