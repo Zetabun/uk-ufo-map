@@ -126,6 +126,47 @@ html, body {
   overflow: hidden;
 }
 	
+/* Slimmer year-range slider (noUiSlider) */
+#yearSlider {
+  margin-top: 10px;
+  margin-bottom: 6px;
+}
+
+#yearSlider .noUi-target {
+  border: none;
+  box-shadow: none;
+  height: 8px;              /* track height */
+  border-radius: 999px;
+}
+
+#yearSlider .noUi-base,
+#yearSlider .noUi-connects {
+  height: 8px;
+  border-radius: 999px;
+}
+
+#yearSlider .noUi-connect {
+  border-radius: 999px;
+}
+
+#yearSlider .noUi-handle {
+  width: 18px;              /* handle size */
+  height: 18px;
+  right: -9px;              /* keeps it centered */
+  top: -5px;                /* vertical align to track */
+  border-radius: 999px;
+  border: 2px solid rgba(255,255,255,0.35);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+}
+
+#yearSlider .noUi-handle:before,
+#yearSlider .noUi-handle:after {
+  display: none;            /* removes the two little bars */
+}
+
+#yearSlider .noUi-touch-area {
+  border-radius: 999px;
+}
 	
 	
   </style>
