@@ -306,6 +306,15 @@ html, body {
   const cluster = L.markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 50 });
   map.addLayer(cluster);
 
+  // Fix occasional "map misalignment" (Leaflet needs a resize invalidate after layout settles)
+  function fixMapSizeSoon(){
+    setTimeout(() => { try { map.invalidateSize(true); } catch(e){} }, 50);
+    setTimeout(() => { try { map.invalidateSize(true); } catch(e){} }, 300);
+    setTimeout(() => { try { map.invalidateSize(true); } catch(e){} }, 900);
+  }
+  window.addEventListener('resize', () => fixMapSizeSoon());
+
+
   // State
   let records = [];
   let markersById = new Map();
@@ -353,7 +362,24 @@ html, body {
     return String(src).split(/[\n;]+/).map(s=>s.trim()).filter(Boolean);
   }
 
-  function escapeHtml(str){
+  
+  // Case-insensitive, trimmed header lookup (handles 'Weather ', 'weather summary', etc.)
+  function getField(row, names){
+    if(!row) return '';
+    const keys = Object.keys(row);
+    for(const n of names){
+      const target = String(n).trim().toLowerCase();
+      // direct
+      for(const k of keys){
+        if(String(k).trim().toLowerCase() === target){
+          return row[k];
+        }
+      }
+    }
+    return '';
+  }
+
+function escapeHtml(str){
     return String(str ?? '').replace(/[&<>"']/g, s => ({
       '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
     }[s]));
@@ -381,7 +407,7 @@ html, body {
           <span class="pill">${escapeHtml(r.region || '—')}</span>
           <span class="pill">Credibility: ${escapeHtml(String(r.cred || '—'))}</span>
         </div>
-        <div style="font-size:12px;line-height:1.4;color:#111827">
+        <div style="font-size:12px;line-height:1.45;color:#111827">
           <div><b>Location:</b> ${escapeHtml(r.location || '—')}</div>
           <div style="margin-top:6px"><b>Witness:</b> ${escapeHtml(r.witness || '—')}</div>
           <div style="margin-top:6px"><b>Evidence:</b> ${escapeHtml(r.evidence || '—')}</div>
@@ -549,27 +575,28 @@ function highlightListItem(id){
   //  - Latitude/Longitude
   //  - Lat/Long  (your current sheet)
   function normaliseRow(r, idx){
-    const latRaw = r.lat ?? r.Latitude ?? r.latitude ?? r.Lat ?? r.LAT ?? '';
-    const lonRaw = r.lon ?? r.Longitude ?? r.longitude ?? r.Long ?? r.LONG ?? r.lng ?? r.Lng ?? '';
+    const latRaw = getField(r, ['lat','latitude','Lat','LAT']);
+    const lonRaw = getField(r, ['lon','longitude','Long','LONG','lng','Lng']);
 
     const out = {
       id: idx,
-      case: r['Case'] ?? r['case'] ?? '',
-      date: r['Date'] ?? r['date'] ?? '',
-      time: r['Time'] ?? r['time'] ?? '',
-      date_iso: r['Date_ISO'] ?? r['date_iso'] ?? r['Date ISO'] ?? '',
-      weather: r['Weather'] ?? r['weather'] ?? r['Weather summary'] ?? r['Weather Summary'] ?? '',
-      weather_source: r['Weather source'] ?? r['weather source'] ?? r['Weather Source'] ?? '',
-      location: r['Location'] ?? r['location'] ?? '',
-      region: r['Region'] ?? r['region'] ?? '',
-      witness: r['Witness profile'] ?? r['Witness'] ?? r['witness'] ?? '',
-      evidence: r['Evidence'] ?? r['evidence'] ?? '',
-      summary: r['Summary'] ?? r['summary'] ?? '',
-      status: r['Status'] ?? r['status'] ?? '',
-      cred: Number(r['Credibility (1-5)'] ?? r['Credibility'] ?? r['credibility'] ?? 0),
-      why: r['Why considered reputable'] ?? r['Why'] ?? r['why'] ?? '',
-      sources: r['Sources'] ?? r['sources'] ?? '',
-      year: safeYear(r['Date'] ?? r['date'] ?? ''),
+      case: getField(r, ['Case','case']),
+      date: getField(r, ['Date','date']),
+      time: getField(r, ['Time','time']),
+      date_iso: getField(r, ['Date_ISO','date_iso','Date ISO','Date (ISO)','ISO Date']),
+      location: getField(r, ['Location','location']),
+      region: getField(r, ['Region','region']),
+      witness: getField(r, ['Witness profile','Witness','witness']),
+      evidence: getField(r, ['Evidence','evidence']),
+      summary: getField(r, ['Summary','summary']),
+      status: getField(r, ['Status','status']),
+      cred: Number(getField(r, ['Credibility (1-5)','Credibility','credibility']) || 0),
+      why: getField(r, ['Why considered reputable','Why','why']),
+      // Weather columns (support your new naming variations)
+      weather: getField(r, ['Weather','weather','Weather summary','Weather Summary','Historical weather','Historic weather','Weather (historic)','Weather (historical)']),
+      weather_source: getField(r, ['Weather source','weather source','Weather Source','Weather data source','Weather Data Source']),
+      sources: getField(r, ['Sources','sources']),
+      year: safeYear(getField(r, ['Date_ISO','date_iso','Date','date'])),
       lat: Number(latRaw),
       lon: Number(lonRaw)
     };
@@ -708,6 +735,8 @@ function highlightListItem(id){
 
           render();
           fitToMarkers();
+    fixMapSizeSoon();
+          fixMapSizeSoon();
 
           // Fallback: geocode rows missing lat/lon (rate-limited + cached)
           geocodeMissingCoords().finally(() => resolve());
@@ -723,7 +752,7 @@ function highlightListItem(id){
     els.minCred.addEventListener(evt, () => render());
   });
 
-  els.fitBtn.addEventListener('click', fitToMarkers);
+  els.fitBtn.addEventListener('click', () => { fitToMarkers(); fixMapSizeSoon(); });
   els.resetBtn.addEventListener('click', () => {
     els.search.value = '';
     els.region.value = '';
