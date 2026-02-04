@@ -218,9 +218,10 @@
 
   // Map
   const map = L.map('map', { zoomControl: true }).setView([54.5, -3.0], 6);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 18,
-    attribution: '&copy; OpenStreetMap contributors'
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    maxZoom: 19,
+    subdomains: 'abcd',
+    attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
   }).addTo(map);
 
   const cluster = L.markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 50 });
@@ -230,6 +231,30 @@
   let records = [];
   let markersById = new Map();
   let currentYearMin = 1900, currentYearMax = 2100;
+
+  // UK-ish bounds (used to detect swapped coordinates / bad geocodes)
+  const UK_BOUNDS = { minLat: 49.0, maxLat: 61.7, minLon: -8.8, maxLon: 2.8 };
+  const UK_SOFT_BOUNDS = { minLat: 45.0, maxLat: 65.0, minLon: -12.0, maxLon: 6.0 };
+
+  function isWithinBounds(lat, lon, b){
+    return Number.isFinite(lat) && Number.isFinite(lon) &&
+           lat >= b.minLat && lat <= b.maxLat && lon >= b.minLon && lon <= b.maxLon;
+  }
+
+  // If a row has lat/lon swapped (common), detect and fix it.
+  function normaliseCoords(lat, lon){
+    const la = Number(lat), lo = Number(lon);
+    if(!Number.isFinite(la) || !Number.isFinite(lo)) return { lat: la, lon: lo, fixed: false };
+
+    // Correct if it looks swapped: lat is UK-ish longitude range and lon is UK-ish latitude range
+    if(la >= UK_SOFT_BOUNDS.minLon && la <= UK_SOFT_BOUNDS.maxLon &&
+       lo >= UK_SOFT_BOUNDS.minLat && lo <= UK_SOFT_BOUNDS.maxLat){
+      return { lat: lo, lon: la, fixed: true };
+    }
+    return { lat: la, lon: lo, fixed: false };
+  }
+
+
 
   function setStatus(type, text){
     els.statusDot.classList.remove('ok','warn','bad');
@@ -383,7 +408,18 @@
     const layers = cluster.getLayers();
     if(!layers.length) return;
     const group = L.featureGroup(layers);
-    map.fitBounds(group.getBounds().pad(0.2));
+    const b = group.getBounds();
+
+    // If markers are wildly outside the UK, don't auto-zoom (usually swapped coords or geocode mismatch)
+    const center = b.getCenter();
+    if(!isWithinBounds(center.lat, center.lng, UK_SOFT_BOUNDS)){
+      setStatus('warn', 'Data loaded, but marker coordinates look outside the UK. Check your lat/lon columns (or rely on Location geocoding).');
+      // Keep a UK default view
+      map.setView([54.5, -3.0], 6);
+      return;
+    }
+
+    map.fitBounds(b.pad(0.2));
   }
 
   function initYearSlider(minY, maxY){
@@ -419,9 +455,10 @@
   }
 
   function normaliseRow(r, idx){
-    const lat = r.lat ?? r.Latitude ?? r.latitude ?? '';
-    const lon = r.lon ?? r.Longitude ?? r.longitude ?? r.lng ?? r.Lng ?? '';
-    return {
+    const latRaw = r.lat ?? r.Latitude ?? r.latitude ?? '';
+    const lonRaw = r.lon ?? r.Longitude ?? r.longitude ?? r.lng ?? r.Lng ?? '';
+
+    const out = {
       id: idx,
       case: r['Case'] ?? r['case'] ?? '',
       date: r['Date'] ?? r['date'] ?? '',
@@ -435,21 +472,16 @@
       why: r['Why considered reputable'] ?? r['Why'] ?? r['why'] ?? '',
       sources: r['Sources'] ?? r['sources'] ?? '',
       year: safeYear(r['Date'] ?? r['date'] ?? ''),
-      lat: Number(lat),
-      lon: Number(lon)
+      lat: Number(latRaw),
+      lon: Number(lonRaw)
     };
+
+    const fixed = normaliseCoords(out.lat, out.lon);
+    out.lat = fixed.lat;
+    out.lon = fixed.lon;
+
+    return out;
   }
-
-  
-  // ==== Optional fallback geocoding (only if lat/lon missing) ====
-  // Uses OpenStreetMap Nominatim. Please be considerate (rate-limited + cached).
-  const GEO_CACHE_KEY = 'ufo_geo_cache_v1';
-  const GEO_DELAY_MS = 1100; // ~1 req/sec
-  const GEO_EMAIL = ''; // optional: set to an email for Nominatim identify param if you want
-
-  function loadGeoCache(){
-    try { return JSON.parse(localStorage.getItem(GEO_CACHE_KEY) || '{}'); }
-    catch { return {}; }
   }
   function saveGeoCache(cache){
     try { localStorage.setItem(GEO_CACHE_KEY, JSON.stringify(cache)); } catch {}
@@ -568,7 +600,7 @@ async function loadFromGoogleSheets(){
 
           const missingCoords = records.filter(r => !Number.isFinite(r.lat) || !Number.isFinite(r.lon)).length;
           if(missingCoords){
-            setStatus('warn', `Loaded ${records.length} rows. ${missingCoords} missing lat/lon (won't plot).`);
+            setStatus('warn', `Loaded ${records.length} rows. ${missingCoords} missing lat/lon (won't plot) — using Location geocoding as a fallback.`);
           } else {
             setStatus('ok', `Loaded ${records.length} rows. Ready.`);
           }
