@@ -371,11 +371,17 @@ html, body {
       <div style="min-width:260px;max-width:360px">
         <div style="font-weight:800;font-size:14px;margin-bottom:4px">${escapeHtml(r.case)}</div>
         <div style="color:#9ca3af;font-size:12px;margin-bottom:8px">${escapeHtml(r.date || '')}</div>
+        ${r.time ? `<div style="color:#6b7280;font-size:12px;margin-bottom:8px"><b>Time:</b> ${escapeHtml(r.time)}</div>` : ''}
+        ${r.weather ? `<div style="margin-bottom:10px;padding:8px 10px;border:1px solid rgba(0,0,0,.08);border-radius:12px;background:#f9fafb">
+          <div style="font-weight:700;margin-bottom:4px">Weather</div>
+          <div style="font-size:12px;line-height:1.35">${escapeHtml(r.weather)}</div>
+          ${r.weather_source ? `<div style="font-size:11px;color:#6b7280;margin-top:6px">Source: ${escapeHtml(r.weather_source)}</div>` : ''}
+        </div>` : ''}
         <div style="margin-bottom:8px">
           <span class="pill">${escapeHtml(r.region || '—')}</span>
           <span class="pill">Credibility: ${escapeHtml(String(r.cred || '—'))}</span>
         </div>
-        <div style="font-size:12px;line-height:1.4;color:#e5e7eb">
+        <div style="font-size:12px;line-height:1.4;color:#111827">
           <div><b>Location:</b> ${escapeHtml(r.location || '—')}</div>
           <div style="margin-top:6px"><b>Witness:</b> ${escapeHtml(r.witness || '—')}</div>
           <div style="margin-top:6px"><b>Evidence:</b> ${escapeHtml(r.evidence || '—')}</div>
@@ -418,7 +424,7 @@ html, body {
     const y = r.year || 0;
 
     if(q){
-      const hay = [r.case,r.location,r.region,r.summary,r.witness,r.evidence,r.status].join(' ').toLowerCase();
+      const hay = [r.case,r.location,r.region,r.summary,r.witness,r.evidence,r.status,r.weather].join(' ').toLowerCase();
       if(!hay.includes(q)) return false;
     }
     if(reg && (r.region || '') !== reg) return false;
@@ -451,6 +457,7 @@ html, body {
       div.innerHTML = `
         <p class="title">${escapeHtml(r.case)}</p>
         <p class="meta">${escapeHtml(r.location)} • ${escapeHtml(r.date || '')}</p>
+        ${r.weather ? `<p class="meta" style="margin-top:6px; color:#6b7280">Weather: ${escapeHtml(r.weather).slice(0, 90)}${(String(r.weather).length>90?'…':'')}</p>` : ''}
         <div style="margin-top:8px">
           <span class="pill">${escapeHtml(r.region || '—')}</span>
           <span class="pill">Cred: ${escapeHtml(String(r.cred || '—'))}</span>
@@ -549,6 +556,10 @@ function highlightListItem(id){
       id: idx,
       case: r['Case'] ?? r['case'] ?? '',
       date: r['Date'] ?? r['date'] ?? '',
+      time: r['Time'] ?? r['time'] ?? '',
+      date_iso: r['Date_ISO'] ?? r['date_iso'] ?? r['Date ISO'] ?? '',
+      weather: r['Weather'] ?? r['weather'] ?? r['Weather summary'] ?? r['Weather Summary'] ?? '',
+      weather_source: r['Weather source'] ?? r['weather source'] ?? r['Weather Source'] ?? '',
       location: r['Location'] ?? r['location'] ?? '',
       region: r['Region'] ?? r['region'] ?? '',
       witness: r['Witness profile'] ?? r['Witness'] ?? r['witness'] ?? '',
