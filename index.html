@@ -359,6 +359,18 @@ select:focus {
       </div>
 
       <div style="height:12px"></div>
+      <div class="row">
+        <div>
+          <label for="encounter">Encounter</label>
+          <select id="encounter">
+            <option value="">All</option>
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="height:12px"></div>
       <label>Year range</label>
       <div class="slider-wrap"><div id="yearSlider"></div></div>
       <div class="slider-meta"><span id="yearMin">—</span><span id="yearMax">—</span></div>
@@ -405,6 +417,7 @@ select:focus {
     kpiShown: document.getElementById('kpiShown'),
     region: document.getElementById('region'),
     minCred: document.getElementById('minCred'),
+    encounter: document.getElementById('encounter'),
     search: document.getElementById('search'),
     list: document.getElementById('list'),
     fitBtn: document.getElementById('fitBtn'),
@@ -579,6 +592,7 @@ function escapeHtml(str){
     const q = els.search.value.trim().toLowerCase();
     const reg = els.region.value;
     const minCred = parseInt(els.minCred.value, 10);
+    const enc = (els.encounter && els.encounter.value) ? els.encounter.value : '';
     const y = r.year || 0;
 
     if(q){
@@ -588,6 +602,7 @@ function escapeHtml(str){
     if(reg && (r.region || '') !== reg) return false;
     if((r.cred || 0) < minCred) return false;
     if(y && (y < currentYearMin || y > currentYearMax)) return false;
+    if(enc && (r.encounter || 'no') !== enc) return false;
 
     return true;
   }
@@ -722,6 +737,16 @@ function highlightListItem(id){
       evidence: getField(r, ['Evidence','evidence']),
       summary: getField(r, ['Summary','summary']),
       status: getField(r, ['Status','status']),
+      encounter: (() => {
+        const raw = String(getField(r, ['Encounter','encounter','Alien encounter','alien encounter']) || '').trim().toLowerCase();
+        if(!raw) return 'no'; // default blank to 'no'
+        if(['y','yes','true','1'].includes(raw)) return 'yes';
+        if(['n','no','false','0'].includes(raw)) return 'no';
+        // any other value: treat as yes if it contains 'yes', else no
+        if(raw.includes('yes')) return 'yes';
+        if(raw.includes('no')) return 'no';
+        return 'no';
+      })(),
       cred: Number(getField(r, ['Credibility (1-5)','Credibility','credibility']) || 0),
       why: getField(r, ['Why considered reputable','Why','why']),
       // Weather columns (support your new naming variations)
@@ -888,6 +913,7 @@ function highlightListItem(id){
     els.search.addEventListener(evt, () => render());
     els.region.addEventListener(evt, () => render());
     els.minCred.addEventListener(evt, () => render());
+    if(els.encounter) els.encounter.addEventListener(evt, () => render());
   });
 
   els.fitBtn.addEventListener('click', () => { fitToMarkers(); fixMapSizeSoon(); });
@@ -895,6 +921,7 @@ function highlightListItem(id){
     els.search.value = '';
     els.region.value = '';
     els.minCred.value = '3';
+    if(els.encounter) els.encounter.value = '';
     const slider = els.yearSlider.noUiSlider;
     if(slider){
       const r = slider.options.range;
