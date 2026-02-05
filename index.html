@@ -350,10 +350,35 @@ select:focus {
     </div>
 
 
+<div class="card" id="layersCard">
+  <div style="font-weight:700;margin-bottom:6px">Map layers</div>
+
+  <div class="toggle-row">
+    <div>
+      <div style="font-weight:650;font-size:13px">Airports</div>
+      <div class="label">Show major UK airports</div>
+    </div>
+    <label class="switch" title="Toggle airports">
+      <input type="checkbox" id="toggleAirports">
+      <span class="slider"></span>
+    </label>
+  </div>
+
+  <div class="toggle-row">
+    <div>
+      <div style="font-weight:650;font-size:13px">Military bases</div>
+      <div class="label">Show RAF/Army/Navy bases</div>
+    </div>
+    <label class="switch" title="Toggle military bases">
+      <input type="checkbox" id="toggleBases">
+      <span class="slider"></span>
+    </label>
+  </div>
+
+  <div class="layer-hint">These markers are an optional reference layer and won’t affect your sightings filters.</div>
+</div>
 
 
-    <div class="card" id="layersCard">
-      <div style="font-weight:700;margin-bottom:6px">Map layers</div>
 
       
 
@@ -410,13 +435,6 @@ select:focus {
       <div style="height:8px"></div>
       <div id="list"></div>
     </div>
-
-
-    
-
-<div class="toggle-row">
-        <div>
-          <div style="font-weight:650;font-size:13px">Airports</div>
           <div class="label">Show major UK airports</div>
         </div>
         <label class="switch" title="Toggle airports">
@@ -424,10 +442,6 @@ select:focus {
           <span class="slider"></span>
         </label>
       </div>
-
-      <div class="toggle-row">
-        <div>
-          <div style="font-weight:650;font-size:13px">Military bases</div>
           <div class="label">Show RAF/Army/Navy bases</div>
         </div>
         <label class="switch" title="Toggle military bases">
@@ -435,8 +449,6 @@ select:focus {
           <span class="slider"></span>
         </label>
       </div>
-
-      <div class="layer-hint">These markers are an optional reference layer and won’t affect your sightings filters.</div>
     </div>
 
 
