@@ -1116,9 +1116,9 @@ function escapeHtml(str){
   }
 
   function matchesFilters(r){
-    const q = els.search.value.trim().toLowerCase();
-    const reg = els.region.value;
-    const minCred = parseInt(els.minCred.value, 10);
+    const q = (els.search ? els.search.value : '').trim().toLowerCase();
+    const reg = els.region ? els.region.value : '';
+    const minCred = parseInt(els.minCred ? els.minCred.value : '1', 10);
     const y = r.year || 0;
     const enc = (els.encounter && els.encounter.value) ? els.encounter.value : '';
 
@@ -1273,8 +1273,10 @@ function highlightListItem(id){
   function populateRegionOptions(){
     const set = new Set(records.map(r => r.region).filter(Boolean));
     const regions = Array.from(set).sort();
-    els.region.innerHTML = '<option value="">All</option>' + regions.map(r => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join('');
-  }
+    if(els.region){
+      els.region.innerHTML = '<option value="">All</option>' + regions.map(r => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join('');
+    }
+}
 
   // Accept these coordinate headers:
   //  - lat/lon  (preferred)
@@ -1461,17 +1463,17 @@ function highlightListItem(id){
   }
 
   ['input','change'].forEach(evt => {
-    els.search.addEventListener(evt, () => render());
-    els.region.addEventListener(evt, () => render());
-    els.minCred.addEventListener(evt, () => render());
+    if(els.search) els.search.addEventListener(evt, () => render());
+    if(els.region) els.region.addEventListener(evt, () => render());
+    if(els.minCred) els.minCred.addEventListener(evt, () => render());
     if(els.encounter) els.encounter.addEventListener(evt, () => render());
   });
 
   els.fitBtn.addEventListener('click', () => { fitToMarkers(); fixMapSizeSoon(); });
   els.resetBtn.addEventListener('click', () => {
-    els.search.value = '';
-    els.region.value = '';
-    els.minCred.value = '3';
+    if(els.search) els.search.value = '';
+    if(els.region) els.region.value = '';
+    if(els.minCred) els.minCred.value = '3';
     if(els.encounter) els.encounter.value = '';
     const slider = els.yearSlider.noUiSlider;
     if(slider){
