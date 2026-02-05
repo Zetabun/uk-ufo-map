@@ -367,9 +367,9 @@ select:focus {
         <div>
           <label for="minCred">Min credibility</label>
           <select id="minCred">
-            <option value="1">1+</option>
+            <option value="1" selected>1+</option>
             <option value="2">2+</option>
-            <option value="3" selected>3+</option>
+            <option value="3">3+</option>
             <option value="4">4+</option>
             <option value="5">5</option>
           </select>
@@ -389,18 +389,6 @@ select:focus {
       <div class="slider-wrap"><div id="yearSlider"></div></div>
       <div class="slider-meta"><span id="yearMin">—</span><span id="yearMax">—</span></div>
     </div>
-
-    <div class="card">
-      <div class="row" style="justify-content:space-between;align-items:baseline">
-        <div style="flex:1">
-          <div style="font-weight:700;margin-bottom:6px">Results</div>
-          <div class="hint" id="resultsHint">Click an item to zoom and open its popup.</div>
-        </div>
-      </div>
-      <div style="height:8px"></div>
-      <div id="list"></div>
-    </div>
-
 
     <div class="card" id="layersCard">
       <div style="font-weight:700;margin-bottom:6px">Map layers</div>
@@ -428,6 +416,18 @@ select:focus {
       </div>
 
       <div class="layer-hint">These markers are an optional reference layer and won’t affect your sightings filters.</div>
+    </div>
+
+
+    <div class="card">
+      <div class="row" style="justify-content:space-between;align-items:baseline">
+        <div style="flex:1">
+          <div style="font-weight:700;margin-bottom:6px">Results</div>
+          <div class="hint" id="resultsHint">Click an item to zoom and open its popup.</div>
+        </div>
+      </div>
+      <div style="height:8px"></div>
+      <div id="list"></div>
     </div>
 
 
@@ -1100,7 +1100,7 @@ function highlightListItem(id){
   els.resetBtn.addEventListener('click', () => {
     els.search.value = '';
     els.region.value = '';
-    els.minCred.value = '3';
+    els.minCred.value = '1';
     if(els.encounter) els.encounter.value = '';
     const slider = els.yearSlider.noUiSlider;
     if(slider){
