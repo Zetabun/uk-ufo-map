@@ -349,41 +349,6 @@ select:focus {
       </div>
     </div>
 
-
-<div class="card" id="layersCard">
-  <div style="font-weight:700;margin-bottom:6px">Map layers</div>
-
-  <div class="toggle-row">
-    <div>
-      <div style="font-weight:650;font-size:13px">Airports</div>
-      <div class="label">Show major UK airports</div>
-    </div>
-    <label class="switch" title="Toggle airports">
-      <input type="checkbox" id="toggleAirports">
-      <span class="slider"></span>
-    </label>
-  </div>
-
-  <div class="toggle-row">
-    <div>
-      <div style="font-weight:650;font-size:13px">Military bases</div>
-      <div class="label">Show RAF/Army/Navy bases</div>
-    </div>
-    <label class="switch" title="Toggle military bases">
-      <input type="checkbox" id="toggleBases">
-      <span class="slider"></span>
-    </label>
-  </div>
-
-  <div class="layer-hint">These markers are an optional reference layer and won’t affect your sightings filters.</div>
-</div>
-
-
-
-      
-
-
-
     <div class="card">
       <div class="row">
         <div>
@@ -435,6 +400,14 @@ select:focus {
       <div style="height:8px"></div>
       <div id="list"></div>
     </div>
+
+
+    <div class="card" id="layersCard">
+      <div style="font-weight:700;margin-bottom:6px">Map layers</div>
+
+      <div class="toggle-row">
+        <div>
+          <div style="font-weight:650;font-size:13px">Airports</div>
           <div class="label">Show major UK airports</div>
         </div>
         <label class="switch" title="Toggle airports">
@@ -442,6 +415,10 @@ select:focus {
           <span class="slider"></span>
         </label>
       </div>
+
+      <div class="toggle-row">
+        <div>
+          <div style="font-weight:650;font-size:13px">Military bases</div>
           <div class="label">Show RAF/Army/Navy bases</div>
         </div>
         <label class="switch" title="Toggle military bases">
@@ -449,6 +426,8 @@ select:focus {
           <span class="slider"></span>
         </label>
       </div>
+
+      <div class="layer-hint">These markers are an optional reference layer and won’t affect your sightings filters.</div>
     </div>
 
 
@@ -568,42 +547,16 @@ select:focus {
 
     AIRPORTS.forEach(a => {
       L.marker([a.lat, a.lon], { icon: airportIcon, title: a.name })
-        .bindPopup(`
-          <div class="popup-inner">
-            <h3>${esc(a.name)}</h3>
-            <div class="tags">
-              <span class="tag">Airport</span>
-            </div>
-            <div style="font-size:13px;line-height:1.45">
-              <div><span class="k">Coordinates:</span> ${a.lat.toFixed(4)}, ${a.lon.toFixed(4)}</div>
-              <div style="margin-top:10px">
-                <a href="https://www.google.com/maps?q=${a.lat},${a.lon}" target="_blank" rel="noopener">Open in Google Maps</a>
-              </div>
-            </div>
-          </div>
-        `, { maxWidth: 420 })
+        .bindPopup(`<b>${esc(a.name)}</b><div style="margin-top:6px;color:#6b7280;font-size:12px">Airport</div>`)
         .addTo(airportsLayer);
     });
 
-BASES.forEach(b => {
+    BASES.forEach(b => {
       L.marker([b.lat, b.lon], { icon: baseIcon, title: b.name })
-        .bindPopup(`
-          <div class="popup-inner">
-            <h3>${esc(b.name)}</h3>
-            <div class="tags">
-              <span class="tag">Military base</span>
-            </div>
-            <div style="font-size:13px;line-height:1.45">
-              <div><span class="k">Coordinates:</span> ${b.lat.toFixed(4)}, ${b.lon.toFixed(4)}</div>
-              <div style="margin-top:10px">
-                <a href="https://www.google.com/maps?q=${b.lat},${b.lon}" target="_blank" rel="noopener">Open in Google Maps</a>
-              </div>
-            </div>
-          </div>
-        `, { maxWidth: 420 })
+        .bindPopup(`<b>${esc(b.name)}</b><div style="margin-top:6px;color:#6b7280;font-size:12px">Military base</div>`)
         .addTo(basesLayer);
     });
-}
+  }
 
   buildPoiLayers();
 
