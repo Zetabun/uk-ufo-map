@@ -13,6 +13,9 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<!-- PapaParse (CSV) -->
+  <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+
   <!-- noUiSlider -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/nouislider@15.7.1/dist/nouislider.min.css">
   <script src="https://cdn.jsdelivr.net/npm/nouislider@15.7.1/dist/nouislider.min.js"></script>
@@ -87,7 +90,79 @@
     a:hover{text-decoration:underline}
     .hint{font-size:12px;color:var(--muted);line-height:1.35}
     .smallbtn{font-size:11px;padding:6px 8px;border-radius:10px}
-  
+	
+	/* Make Leaflet popups readable (force light-theme text) */
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: #ffffff !important;
+  color: #111827 !important;
+}
+
+.leaflet-popup-content{ color:#111827 !important; }
+.leaflet-popup-content *{ color:#111827 !important; }.leaflet-popup-content a {
+  color: #1d4ed8 !important;
+  text-decoration: underline;
+  word-break: break-word;
+}
+
+.leaflet-popup-content b,
+.leaflet-popup-content strong {
+  color: #111827 !important;
+}
+
+.leaflet-popup-close-button {
+  color: #111827 !important;
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+	
+/* Slimmer year-range slider (noUiSlider) */
+#yearSlider {
+  margin-top: 10px;
+  margin-bottom: 6px;
+}
+
+#yearSlider .noUi-target {
+  border: none;
+  box-shadow: none;
+  height: 8px;              /* track height */
+  border-radius: 999px;
+}
+
+#yearSlider .noUi-base,
+#yearSlider .noUi-connects {
+  height: 8px;
+  border-radius: 999px;
+}
+
+#yearSlider .noUi-connect {
+  border-radius: 999px;
+}
+
+#yearSlider .noUi-handle {
+  width: 18px;              /* handle size */
+  height: 18px;
+  right: -9px;              /* keeps it centered */
+  top: -5px;                /* vertical align to track */
+  border-radius: 999px;
+  border: 2px solid rgba(255,255,255,0.35);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+}
+
+#yearSlider .noUi-handle:before,
+#yearSlider .noUi-handle:after {
+  display: none;            /* removes the two little bars */
+}
+
+#yearSlider .noUi-touch-area {
+  border-radius: 999px;
+}
+	
+	
 /* --- Leaflet popup: modern card styling --- */
 .leaflet-popup-content-wrapper{
   border-radius: 18px !important;
@@ -95,43 +170,62 @@
   box-shadow: 0 18px 50px rgba(0,0,0,0.22) !important;
   border: 1px solid rgba(0,0,0,0.08) !important;
 }
+
 .leaflet-popup-tip{
   box-shadow: 0 12px 30px rgba(0,0,0,0.18) !important;
 }
+
 .leaflet-popup-content{
   margin: 0 !important;
-  width: 360px !important;
+  width: 360px !important;       /* consistent size */
   max-width: 360px !important;
   font-family: inherit;
   color: #111827;
 }
+
+/* Scroll inside popup instead of giant bubbles */
 .leaflet-popup-content .popup-inner{
   padding: 16px 16px 14px 16px;
   max-height: 70vh;
   overflow: auto;
 }
+
+/* Headings + spacing */
 .leaflet-popup-content h3{
   margin: 0 0 6px 0;
   font-size: 18px;
   line-height: 1.2;
   letter-spacing: -0.01em;
 }
+
 .leaflet-popup-content .popup-date{
   color: #6b7280;
   font-size: 13px;
-  margin: 0 0 10px 0;
+  margin: 0 0 12px 0;
 }
-.leaflet-popup-content .k{ font-weight: 700; }
+
+/* Section labels */
+.leaflet-popup-content .k{
+  font-weight: 700;
+}
+
+/* Subtle divider */
 .leaflet-popup-content .divider{
   height: 1px;
   background: rgba(0,0,0,0.08);
   margin: 12px 0;
 }
+
+/* Nicer source links */
 .leaflet-popup-content a{
   color: #1d4ed8;
   text-decoration: none;
 }
-.leaflet-popup-content a:hover{ text-decoration: underline; }
+.leaflet-popup-content a:hover{
+  text-decoration: underline;
+}
+
+/* Little tag pills */
 .leaflet-popup-content .tags{
   display: flex;
   gap: 8px;
@@ -149,7 +243,8 @@
   color: #111827;
 }
 
-</style>
+	
+  </style>
 </head>
 
 <body>
@@ -183,13 +278,12 @@
         <span id="statusText">Loading spreadsheet…</span>
       </div>
       <div style="height:10px"></div>
-      <div class="progress" title="Geocoding progress (cached results skip the queue)">
+      <div class="progress" title="Load progress">
         <div id="progBar"></div>
       </div>
       <div style="height:10px"></div>
       <div class="hint">
-        Geocoding uses OpenStreetMap Nominatim. Results are cached in your browser to avoid repeat lookups.
-        If you rename locations, use <button class="btn smallbtn" id="clearCacheBtn">Clear cache</button>.
+        Markers plot from <b>lat</b>/<b>lon</b> columns in your Google Sheet. If a row is missing coordinates, the site will try to geocode the <b>Location</b> and cache the result in your browser.
       </div>
     </div>
 
@@ -255,8 +349,9 @@
 
 <script>
 (function(){
+  // ==== CONFIG ====
+  // Your published Google Sheets CSV URL (Publish to the web → CSV):
   const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRlnAA5SQ4qpJk9G7WUISgxjrDdujgCbUkl1bz8PekNOXs5jGtcU1HbTcEd0UohrJT7zOEoRAadEmZ_/pub?output=csv';
-  const CACHE_KEY = 'ufo_geo_cache_v2';
 
   const els = {
     statusDot: document.getElementById('statusDot'),
@@ -270,7 +365,6 @@
     list: document.getElementById('list'),
     fitBtn: document.getElementById('fitBtn'),
     resetBtn: document.getElementById('resetBtn'),
-    clearCacheBtn: document.getElementById('clearCacheBtn'),
     yearSlider: document.getElementById('yearSlider'),
     yearMin: document.getElementById('yearMin'),
     yearMax: document.getElementById('yearMax')
@@ -278,31 +372,51 @@
 
   // Map
   const map = L.map('map', { zoomControl: true }).setView([54.5, -3.0], 6);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 18,
-    attribution: '&copy; OpenStreetMap contributors'
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    maxZoom: 19,
+    subdomains: 'abcd',
+    attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
   }).addTo(map);
 
   const cluster = L.markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 50 });
   map.addLayer(cluster);
 
-  // Cache
-  function loadCache(){
-    try { return JSON.parse(localStorage.getItem(CACHE_KEY) || '{}'); }
-    catch(e){ return {}; }
+  // Fix occasional "map misalignment" (Leaflet needs a resize invalidate after layout settles)
+  function fixMapSizeSoon(){
+    setTimeout(() => { try { map.invalidateSize(true); } catch(e){} }, 50);
+    setTimeout(() => { try { map.invalidateSize(true); } catch(e){} }, 300);
+    setTimeout(() => { try { map.invalidateSize(true); } catch(e){} }, 900);
   }
-  function saveCache(cache){
-    localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
-  }
-  let geoCache = loadCache();
+  window.addEventListener('resize', () => fixMapSizeSoon());
+
 
   // State
   let records = [];
   let markersById = new Map();
-  let currentYearMin = 1900, currentYearMax = 2026;
+  let currentYearMin = 1900, currentYearMax = 2100;
+
+  // UK-ish bounds (used to detect swapped coordinates / bad geocodes)
+  const UK_SOFT_BOUNDS = { minLat: 45.0, maxLat: 65.0, minLon: -12.0, maxLon: 6.0 };
+
+  function isWithinBounds(lat, lon, b){
+    return Number.isFinite(lat) && Number.isFinite(lon) &&
+           lat >= b.minLat && lat <= b.maxLat && lon >= b.minLon && lon <= b.maxLon;
+  }
+
+  // If a row has lat/lon swapped (common), detect and fix it.
+  function normaliseCoords(lat, lon){
+    const la = Number(lat), lo = Number(lon);
+    if(!Number.isFinite(la) || !Number.isFinite(lo)) return { lat: la, lon: lo, fixed: false };
+
+    // Correct if it looks swapped: lat is UK-ish longitude range and lon is UK-ish latitude range
+    if(la >= UK_SOFT_BOUNDS.minLon && la <= UK_SOFT_BOUNDS.maxLon &&
+       lo >= UK_SOFT_BOUNDS.minLat && lo <= UK_SOFT_BOUNDS.maxLat){
+      return { lat: lo, lon: la, fixed: true };
+    }
+    return { lat: la, lon: lo, fixed: false };
+  }
 
   function setStatus(type, text){
-    // type: ok | warn | bad
     els.statusDot.classList.remove('ok','warn','bad');
     els.statusDot.classList.add(type);
     els.statusText.textContent = text;
@@ -314,17 +428,52 @@
 
   function safeYear(dateStr){
     if(!dateStr) return null;
-    const m = String(dateStr).match(/(19\d{2}|20\d{2})/);
+    const m = String(dateStr).match(/\b(18\d{2}|19\d{2}|20\d{2})\b/);
     return m ? parseInt(m[1],10) : null;
   }
 
   function parseSources(src){
     if(!src) return [];
-    return String(src).split(/\n+/).map(s=>s.trim()).filter(Boolean);
+    return String(src).split(/[\n;]+/).map(s=>s.trim()).filter(Boolean);
+  }
+
+  
+  // Case-insensitive, trimmed header lookup (handles 'Weather ', 'weather summary', etc.)
+  function getField(row, names){
+    if(!row) return '';
+    const keys = Object.keys(row);
+    for(const n of names){
+      const target = String(n).trim().toLowerCase();
+      // direct
+      for(const k of keys){
+        if(String(k).trim().toLowerCase() === target){
+          return row[k];
+        }
+      }
+    }
+    return '';
+  }
+
+function escapeHtml(str){
+    return String(str ?? '').replace(/[&<>"']/g, s => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[s]));
   }
 
   function makePopupHTML(r){
     const sources = parseSources(r.sources);
+
+    // Build sources list with short labels (Source 1, Source 2...) but keep real URLs
+    const srcHtml = sources.length
+      ? `<div class="divider"></div>
+         <div style="font-weight:800;margin-bottom:6px">Sources</div>
+         ${sources.map((u,i) => {
+            const label = `Source ${i+1}`;
+            return `<div style="margin:4px 0">
+                      <a href="${escapeHtml(u)}" target="_blank" rel="noopener">${label}</a>
+                    </div>`;
+          }).join('')}`
+      : '';
 
     const tags = `
       <div class="tags">
@@ -339,12 +488,6 @@
            <div style="font-size:13px;line-height:1.35">${escapeHtml(r.weather)}</div>
            ${r.weather_source ? `<div style="font-size:11px;color:#6b7280;margin-top:6px">Source: ${escapeHtml(r.weather_source)}</div>` : ''}
          </div>`
-      : '';
-
-    const srcHtml = sources.length
-      ? `<div class="divider"></div>
-         <div style="font-weight:800;margin-bottom:6px">Sources</div>
-         ${sources.map((u,i) => `<div style="margin:4px 0"><a href="${escapeHtml(u)}" target="_blank" rel="noopener">Source ${i+1}</a></div>`).join('')}`
       : '';
 
     return `
@@ -363,28 +506,6 @@
         </div>
       </div>
     `;
-  }
-
-  function escapeHtml(str){
-    return String(str ?? '').replace(/[&<>"']/g, s => ({
-      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-    }[s]));
-  }
-
-  // Geocoding (Nominatim)
-  async function geocodeLocation(location){
-    const key = location.trim().toLowerCase();
-    if(geoCache[key]) return geoCache[key];
-
-    const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=gb&q=' + encodeURIComponent(location);
-    const res = await fetch(url, { headers: { 'Accept': 'application/json' }});
-    if(!res.ok) throw new Error('Geocode failed: ' + res.status);
-    const data = await res.json();
-    if(!data || !data[0]) throw new Error('No match for: ' + location);
-    const out = { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon), display: data[0].display_name };
-    geoCache[key] = out;
-    saveCache(geoCache);
-    return out;
   }
 
   function markerColorByCred(cred){
@@ -417,7 +538,7 @@
     const y = r.year || 0;
 
     if(q){
-      const hay = [r.case,r.location,r.region,r.summary,r.witness,r.evidence,r.status].join(' ').toLowerCase();
+      const hay = [r.case,r.location,r.region,r.summary,r.witness,r.evidence,r.status,r.weather].join(' ').toLowerCase();
       if(!hay.includes(q)) return false;
     }
     if(reg && (r.region || '') !== reg) return false;
@@ -434,9 +555,8 @@
     const shown = records.filter(matchesFilters);
     els.kpiShown.textContent = shown.length;
 
-    // Add markers
     for(const r of shown){
-      if(!r.lat || !r.lon) continue;
+      if(!Number.isFinite(r.lat) || !Number.isFinite(r.lon)) continue;
       const m = makeCircleMarker(r.lat, r.lon, r.cred);
       m.bindPopup(makePopupHTML(r), { maxWidth: 420 });
       m.on('click', () => highlightListItem(r.id));
@@ -444,7 +564,6 @@
       markersById.set(r.id, m);
     }
 
-    // List
     for(const r of shown.slice(0, 250)){
       const div = document.createElement('div');
       div.className = 'item';
@@ -452,6 +571,7 @@
       div.innerHTML = `
         <p class="title">${escapeHtml(r.case)}</p>
         <p class="meta">${escapeHtml(r.location)} • ${escapeHtml(r.date || '')}</p>
+        ${r.weather ? `<p class="meta" style="margin-top:6px; color:#6b7280">Weather: ${escapeHtml(r.weather).slice(0, 90)}${(String(r.weather).length>90?'…':'')}</p>` : ''}
         <div style="margin-top:8px">
           <span class="pill">${escapeHtml(r.region || '—')}</span>
           <span class="pill">Cred: ${escapeHtml(String(r.cred || '—'))}</span>
@@ -476,20 +596,36 @@
     }
   }
 
-  function highlightListItem(id){
-    // Basic highlight by scrolling into view
-    const el = els.list.querySelector(`.item[data-id="${id}"]`);
-    if(el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }
+function highlightListItem(id){
+  const el = els.list.querySelector(`.item[data-id="${id}"]`);
+  if(!el) return;
+
+  // Scroll ONLY inside the results container (prevents page jumping)
+  const container = els.list; // this is the scrollable area
+  const top = el.offsetTop - (container.clientHeight / 2) + (el.clientHeight / 2);
+
+  container.scrollTo({
+    top: Math.max(0, top),
+    behavior: 'smooth'
+  });
+}
+
 
   function fitToMarkers(){
     const layers = cluster.getLayers();
     if(!layers.length) return;
     const group = L.featureGroup(layers);
-    map.fitBounds(group.getBounds().pad(0.2));
+    const b = group.getBounds();
+    const center = b.getCenter();
+
+    if(!isWithinBounds(center.lat, center.lng, UK_SOFT_BOUNDS)){
+      setStatus('warn', 'Data loaded, but marker coordinates look outside the UK. Check your lat/lon columns (or rely on Location geocoding).');
+      map.setView([54.5, -3.0], 6);
+      return;
+    }
+    map.fitBounds(b.pad(0.2));
   }
 
-  // Year slider
   function initYearSlider(minY, maxY){
     currentYearMin = minY;
     currentYearMax = maxY;
@@ -502,10 +638,7 @@
       connect: true,
       step: 1,
       range: { min: minY, max: maxY },
-      format: {
-        to: v => Math.round(v),
-        from: v => parseInt(v,10)
-      }
+      format: { to: v => Math.round(v), from: v => parseInt(v,10) }
     });
     els.yearMin.textContent = minY;
     els.yearMax.textContent = maxY;
@@ -525,169 +658,199 @@
     els.region.innerHTML = '<option value="">All</option>' + regions.map(r => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join('');
   }
 
+  // Accept these coordinate headers:
+  //  - lat/lon  (preferred)
+  //  - Latitude/Longitude
+  //  - Lat/Long  (your current sheet)
+  function normaliseRow(r, idx){
+    const latRaw = getField(r, ['lat','latitude','Lat','LAT']);
+    const lonRaw = getField(r, ['lon','longitude','Long','LONG','lng','Lng']);
 
-  function parseCSV(text){
-    // Simple RFC4180-ish CSV parser supporting quoted fields and newlines in quotes
-    const rows = [];
-    let row = [];
-    let cur = '';
-    let inQuotes = false;
-    for(let i=0;i<text.length;i++){
-      const ch = text[i];
-      const next = text[i+1];
-      if(inQuotes){
-        if(ch === '"' && next === '"'){ cur += '"'; i++; }
-        else if(ch === '"'){ inQuotes = false; }
-        else { cur += ch; }
-      }else{
-        if(ch === '"'){ inQuotes = true; }
-        else if(ch === ','){ row.push(cur); cur=''; }
-        else if(ch === '\r'){ continue; }
-        else if(ch === '\n'){ row.push(cur); rows.push(row); row=[]; cur=''; }
-        else { cur += ch; }
-      }
-    }
-    // flush last
-    if(cur.length || row.length){ row.push(cur); rows.push(row); }
-    if(!rows.length) return [];
-    const header = rows[0].map(h => String(h || '').trim());
-    const out = [];
-    for(let r=1;r<rows.length;r++){
-      const obj = {};
-      for(let c=0;c<header.length;c++){
-        obj[header[c]] = rows[r][c] ?? '';
-      }
-      out.push(obj);
-    }
+    const out = {
+      id: idx,
+      case: getField(r, ['Case','case']),
+      date: getField(r, ['Date','date']),
+      time: getField(r, ['Time','time']),
+      date_iso: getField(r, ['Date_ISO','date_iso','Date ISO','Date (ISO)','ISO Date']),
+      location: getField(r, ['Location','location']),
+      region: getField(r, ['Region','region']),
+      witness: getField(r, ['Witness profile','Witness','witness']),
+      evidence: getField(r, ['Evidence','evidence']),
+      summary: getField(r, ['Summary','summary']),
+      status: getField(r, ['Status','status']),
+      cred: Number(getField(r, ['Credibility (1-5)','Credibility','credibility']) || 0),
+      why: getField(r, ['Why considered reputable','Why','why']),
+      // Weather columns (support your new naming variations)
+     weather: (() => {
+  const w = String(getField(r, ['Weather','weather','Weather summary','Weather Summary','Historical weather','Historic weather','Weather (historic)','Weather (historical)']) || '').trim();
+  // If it looks like a date/date-range, ignore it (prevents Date_ISO being shown as Weather)
+  if (/^\d{4}-\d{2}(-\d{2})?(?:\s+to\s+\d{4}-\d{2}(-\d{2})?)?$/i.test(w)) return '';
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}(?:\s+to\s+\d{1,2}\/\d{1,2}\/\d{4})?$/i.test(w)) return '';
+  return w;
+})(),
+
+      weather_source: getField(r, ['Weather source','weather source','Weather Source','Weather data source','Weather Data Source']),
+      sources: getField(r, ['Sources','sources']),
+      year: safeYear(getField(r, ['Date_ISO','date_iso','Date','date'])),
+      lat: Number(latRaw),
+      lon: Number(lonRaw)
+    };
+
+    const fixed = normaliseCoords(out.lat, out.lon);
+    out.lat = fixed.lat;
+    out.lon = fixed.lon;
+
     return out;
   }
 
-  function getFieldCI(row, names){
-    const keys = Object.keys(row || {});
-    const map = new Map(keys.map(k => [String(k).trim().toLowerCase(), k]));
-    for(const n of names){
-      const key = map.get(String(n).trim().toLowerCase());
-      if(key !== undefined) return row[key];
-    }
-    return '';
+  // ==== Optional fallback geocoding (only if lat/lon missing) ====
+  // Uses OpenStreetMap Nominatim. Please be considerate (rate-limited + cached).
+  const GEO_CACHE_KEY = 'ufo_geo_cache_v1';
+  const GEO_DELAY_MS = 1100; // ~1 req/sec
+  const GEO_EMAIL = ''; // optional
+
+  function loadGeoCache(){
+    try { return JSON.parse(localStorage.getItem(GEO_CACHE_KEY) || '{}'); }
+    catch { return {}; }
+  }
+  function saveGeoCache(cache){
+    try { localStorage.setItem(GEO_CACHE_KEY, JSON.stringify(cache)); } catch {}
+  }
+  function cacheKeyForLocation(loc){
+    return String(loc || '').trim().toLowerCase();
+  }
+  function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
+
+  async function geocodeLocation(loc){
+    const q = String(loc || '').trim();
+    if(!q) return null;
+
+    const params = new URLSearchParams({ format: 'json', q, limit: '1', addressdetails: '0' });
+    if (GEO_EMAIL) params.set('email', GEO_EMAIL);
+
+    const url = 'https://nominatim.openstreetmap.org/search?' + params.toString();
+    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    if(!res.ok) throw new Error('Geocoding HTTP ' + res.status);
+    const data = await res.json();
+    if(!Array.isArray(data) || !data.length) return null;
+
+    const hit = data[0];
+    const lat = Number(hit.lat);
+    const lon = Number(hit.lon);
+    if(!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    return { lat, lon };
   }
 
-  function toNum(x){
-    const n = Number(String(x ?? '').trim());
-    return Number.isFinite(n) ? n : null;
-  }
+  async function geocodeMissingCoords(){
+    const cache = loadGeoCache();
 
-  // Load spreadsheet (Google Sheets published CSV)
-  async function loadSpreadsheet(){
-    setStatus('warn','Loading sheet…');
-
-    if(!SHEET_CSV_URL || SHEET_CSV_URL.includes('PASTE_YOUR_PUBLISHED_CSV_URL_HERE')){
-      throw new Error('Set SHEET_CSV_URL to your Google Sheets published CSV URL.');
+    // Apply cache first
+    for(const r of records){
+      if(Number.isFinite(r.lat) && Number.isFinite(r.lon)) continue;
+      const key = cacheKeyForLocation(r.location);
+      if(key && cache[key]){
+        r.lat = Number(cache[key].lat);
+        r.lon = Number(cache[key].lon);
+      }
     }
 
-    const res = await fetch(SHEET_CSV_URL, { cache: 'no-store' });
-    if(!res.ok) throw new Error('Could not fetch sheet CSV (HTTP ' + res.status + ')');
-    const csvText = await res.text();
-    const json = parseCSV(csvText);
+    const queue = records.filter(r => (!Number.isFinite(r.lat) || !Number.isFinite(r.lon)) && String(r.location || '').trim());
+    if(!queue.length) return;
 
-    // Normalise with flexible header matching (case-insensitive)
-    records = json.map((r, idx) => {
-      const date = getFieldCI(r, ['Date','date']);
-      const dateIso = getFieldCI(r, ['Date_ISO','date_iso','Date ISO','ISO Date','Date (ISO)']);
-      const time = getFieldCI(r, ['Time','time']);
-      const lat = toNum(getFieldCI(r, ['lat','Lat','latitude','Latitude']));
-      const lon = toNum(getFieldCI(r, ['lon','Lon','lng','Lng','long','Long','longitude','Longitude']));
-      return {
-        id: idx,
-        case: getFieldCI(r, ['Case','case']),
-        date: date,
-        time: time,
-        date_iso: dateIso,
-        location: getFieldCI(r, ['Location','location']),
-        region: getFieldCI(r, ['Region','region']),
-        witness: getFieldCI(r, ['Witness profile','Witness','witness']),
-        evidence: getFieldCI(r, ['Evidence','evidence']),
-        summary: getFieldCI(r, ['Summary','summary']),
-        status: getFieldCI(r, ['Status','status']),
-        cred: Number(getFieldCI(r, ['Credibility (1-5)','Credibility','credibility']) || 0),
-        why: getFieldCI(r, ['Why considered reputable','Why','why']),
-        sources: getFieldCI(r, ['Sources','sources']),
-        weather: getFieldCI(r, ['Weather','weather','Historical weather','Weather summary']),
-        weather_source: getFieldCI(r, ['Weather source','Weather Source','weather source']),
-        year: safeYear(dateIso || date),
-        lat: lat,
-        lon: lon
-      };
-    });
-
-    els.kpiTotal.textContent = records.length;
-
-    // Year range from data
-    const years = records.map(r => r.year).filter(Boolean);
-    const minY = years.length ? Math.min(...years) : 1950;
-    const maxY = years.length ? Math.max(...years) : new Date().getFullYear();
-    initYearSlider(minY, maxY);
-
-    populateRegionOptions();
-
-    // If coords already present, skip geocoding for those
-    const needsGeo = records.filter(r => (!r.lat || !r.lon) && r.location);
-    if(!needsGeo.length){
-      setStatus('ok','Loaded from sheet (using provided coordinates).');
-      setProgress(1,1);
-      render();
-      fitToMarkers();
-      return;
-    }
-
-    setStatus('warn','Geocoding locations (cached results are instant)…');
+    setStatus('warn', `Geocoding ${queue.length} location(s)… (cached where possible)`);
+    setProgress(0, queue.length);
 
     let done = 0;
-    setProgress(0, records.length);
-
-    for(const r of records){
-      // If coords supplied, do not geocode
-      if(r.lat && r.lon){ done++; setProgress(done, records.length); continue; }
-
-      if(!r.location){ done++; setProgress(done, records.length); continue; }
-
-      const cacheKey = r.location.trim().toLowerCase();
-      if(geoCache[cacheKey]){
-        r.lat = geoCache[cacheKey].lat;
-        r.lon = geoCache[cacheKey].lon;
-        done++; setProgress(done, records.length);
-        continue;
-  }
+    for(const r of queue){
       try{
-        const g = await geocodeLocation(r.location + ', UK');
-        r.lat = g.lat; r.lon = g.lon;
-      }catch(e){
-        // keep record but no marker
-        console.warn(e);
+        const key = cacheKeyForLocation(r.location);
+        if(key && cache[key]){
+          r.lat = Number(cache[key].lat);
+          r.lon = Number(cache[key].lon);
+        } else {
+          const got = await geocodeLocation(r.location);
+          if(got){
+            r.lat = got.lat;
+            r.lon = got.lon;
+            if(key) cache[key] = got;
+            saveGeoCache(cache);
+          }
+          await sleep(GEO_DELAY_MS);
+        }
+      } catch(e){
+        console.warn('Geocode failed for:', r.location, e);
+        await sleep(GEO_DELAY_MS);
+      } finally {
+        done += 1;
+        setProgress(done, queue.length);
+        render();
       }
-      done++; setProgress(done, records.length);
-      // Nominatim policy: 1 request/second (be gentle)
-      await new Promise(res => setTimeout(res, 1100));
     }
 
-    setStatus('ok','Loaded. Adjust filters or click a case.');
-    render();
-    fitToMarkers();
+    const stillMissing = records.filter(r => !Number.isFinite(r.lat) || !Number.isFinite(r.lon)).length;
+    if(stillMissing){
+      setStatus('warn', `Loaded ${records.length} rows. ${stillMissing} still missing lat/lon (won’t plot).`);
+    } else {
+      setStatus('ok', `Loaded ${records.length} rows. Ready.`);
+    }
   }
 
-  // Wire up events
+  async function loadFromGoogleSheets(){
+    setStatus('warn','Loading Google Sheet…');
+    setProgress(0, 1);
+
+    const url = SHEET_CSV_URL + (SHEET_CSV_URL.includes('?') ? '&' : '?') + 't=' + Date.now();
+
+    return new Promise((resolve, reject) => {
+      Papa.parse(url, {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+          const raw = Array.isArray(results.data) ? results.data : [];
+          records = raw.map((row, idx) => normaliseRow(row, idx)).filter(r => (r.case || r.location || r.summary));
+          els.kpiTotal.textContent = records.length;
+
+          const years = records.map(r => r.year).filter(Boolean);
+          const minY = years.length ? Math.min(...years) : 1950;
+          const maxY = years.length ? Math.max(...years) : new Date().getFullYear();
+          initYearSlider(minY, maxY);
+
+          populateRegionOptions();
+
+          // Default progress fill
+          setProgress(1, 1);
+
+          const missingCoords = records.filter(r => !Number.isFinite(r.lat) || !Number.isFinite(r.lon)).length;
+          if(missingCoords){
+            setStatus('warn', `Loaded ${records.length} rows. ${missingCoords} missing lat/lon (won't plot) — using Location geocoding as a fallback.`);
+          } else {
+            setStatus('ok', `Loaded ${records.length} rows. Ready.`);
+          }
+
+          render();
+          fitToMarkers();
+          fixMapSizeSoon();
+
+          // Fallback: geocode rows missing lat/lon (rate-limited + cached)
+          geocodeMissingCoords().finally(() => resolve());
+        },
+        error: (err) => reject(err)
+      });
+    });
+  }
+
   ['input','change'].forEach(evt => {
     els.search.addEventListener(evt, () => render());
     els.region.addEventListener(evt, () => render());
     els.minCred.addEventListener(evt, () => render());
   });
 
-  els.fitBtn.addEventListener('click', fitToMarkers);
+  els.fitBtn.addEventListener('click', () => { fitToMarkers(); fixMapSizeSoon(); });
   els.resetBtn.addEventListener('click', () => {
     els.search.value = '';
     els.region.value = '';
     els.minCred.value = '3';
-    // reset slider to full range
     const slider = els.yearSlider.noUiSlider;
     if(slider){
       const r = slider.options.range;
@@ -697,19 +860,12 @@
     fitToMarkers();
   });
 
-  els.clearCacheBtn.addEventListener('click', () => {
-    localStorage.removeItem(CACHE_KEY);
-    geoCache = {};
-    setStatus('warn','Cache cleared. Refresh to re-geocode.');
-    setProgress(0, 1);
-  });
-
-  // Kick off
-  loadSpreadsheet().catch(err => {
+  loadFromGoogleSheets().catch(err => {
     console.error(err);
-    setStatus('bad', err.message || String(err));
+    setStatus('bad', (err && err.message) ? err.message : String(err));
   });
 })();
 </script>
+
 </body>
 </html>
