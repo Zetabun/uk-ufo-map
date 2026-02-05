@@ -48,14 +48,18 @@
       padding:8px 10px;border-radius:10px;cursor:pointer;font-size:12px;
     }
     .btn:hover{background:rgba(255,255,255,.07)}
-    .wrap{display:grid;grid-template-columns:360px 1fr;min-height:calc(100vh - 58px)}
+    .wrap{display:grid;grid-template-columns:360px 1fr;height:calc(100vh - 58px)}
     #panel{
       border-right:1px solid var(--border);
       background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,0));
       padding:14px;
-      overflow:auto;
+      height:calc(100vh - 58px);
+      overflow-y:auto;
+      overflow-x:hidden;
+      min-height:0;
+      -webkit-overflow-scrolling:touch;
     }
-    #map{height:calc(100vh - 58px);width:100%}
+    #map{height:100%;width:100%}
     .card{background:rgba(17,24,39,.7);border:1px solid var(--border);border-radius:14px;padding:12px;margin-bottom:12px}
     .row{display:flex;gap:10px;align-items:center}
     .row > *{flex:1}
@@ -98,14 +102,8 @@
   color: #111827 !important;
 }
 
-.leaflet-popup-content,
-.leaflet-popup-content * {
-  color: #111827 !important;
-  font-size: 14px;
-  line-height: 1.45;
-}
-
-.leaflet-popup-content a {
+.leaflet-popup-content{ color:#111827 !important; }
+.leaflet-popup-content *{ color:#111827 !important; }.leaflet-popup-content a {
   color: #1d4ed8 !important;
   text-decoration: underline;
   word-break: break-word;
@@ -169,7 +167,128 @@ html, body {
 }
 	
 	
-  </style>
+/* --- Leaflet popup: modern card styling --- */
+.leaflet-popup-content-wrapper{
+  border-radius: 18px !important;
+  padding: 0 !important;
+  box-shadow: 0 18px 50px rgba(0,0,0,0.22) !important;
+  border: 1px solid rgba(0,0,0,0.08) !important;
+}
+
+.leaflet-popup-tip{
+  box-shadow: 0 12px 30px rgba(0,0,0,0.18) !important;
+}
+
+.leaflet-popup-content{
+  margin: 0 !important;
+  width: 360px !important;       /* consistent size */
+  max-width: 360px !important;
+  font-family: inherit;
+  color: #111827;
+}
+
+/* Scroll inside popup instead of giant bubbles */
+.leaflet-popup-content .popup-inner{
+  padding: 16px 16px 14px 16px;
+  max-height: 70vh;
+  overflow: auto;
+}
+
+/* Headings + spacing */
+.leaflet-popup-content h3{
+  margin: 0 0 6px 0;
+  font-size: 18px;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.leaflet-popup-content .popup-date{
+  color: #6b7280;
+  font-size: 13px;
+  margin: 0 0 12px 0;
+}
+
+/* Section labels */
+.leaflet-popup-content .k{
+  font-weight: 700;
+}
+
+/* Subtle divider */
+.leaflet-popup-content .divider{
+  height: 1px;
+  background: rgba(0,0,0,0.08);
+  margin: 12px 0;
+}
+
+/* Nicer source links */
+.leaflet-popup-content a{
+  color: #1d4ed8;
+  text-decoration: none;
+}
+.leaflet-popup-content a:hover{
+  text-decoration: underline;
+}
+
+/* Little tag pills */
+.leaflet-popup-content .tags{
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 8px 0 10px;
+}
+.leaflet-popup-content .tag{
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  font-size: 12px;
+  border-radius: 999px;
+  background: rgba(0,0,0,0.05);
+  border: 1px solid rgba(0,0,0,0.06);
+  color: #111827;
+}
+
+/* --- Dark dropdowns (select + options) --- */
+select, option {
+  background: #0b1220;
+  color: #e5e7eb;
+}
+
+select {
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 14px;
+  padding: 10px 12px;
+  outline: none;
+  box-shadow: none;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+
+/* Custom arrow (so it still looks like a dropdown) */
+.select-wrap {
+  position: relative;
+}
+.select-wrap::after {
+  content: "▾";
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: rgba(229,231,235,0.8);
+  font-size: 14px;
+}
+
+/* Hover / focus */
+select:hover {
+  border-color: rgba(255,255,255,0.22);
+}
+select:focus {
+  border-color: rgba(96,165,250,0.7);
+  box-shadow: 0 0 0 4px rgba(96,165,250,0.12);
+}
+
+</style>
 </head>
 
 <body>
@@ -306,6 +425,15 @@ html, body {
   const cluster = L.markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 50 });
   map.addLayer(cluster);
 
+  // Fix occasional "map misalignment" (Leaflet needs a resize invalidate after layout settles)
+  function fixMapSizeSoon(){
+    setTimeout(() => { try { map.invalidateSize(true); } catch(e){} }, 50);
+    setTimeout(() => { try { map.invalidateSize(true); } catch(e){} }, 300);
+    setTimeout(() => { try { map.invalidateSize(true); } catch(e){} }, 900);
+  }
+  window.addEventListener('resize', () => fixMapSizeSoon());
+
+
   // State
   let records = [];
   let markersById = new Map();
@@ -353,7 +481,24 @@ html, body {
     return String(src).split(/[\n;]+/).map(s=>s.trim()).filter(Boolean);
   }
 
-  function escapeHtml(str){
+  
+  // Case-insensitive, trimmed header lookup (handles 'Weather ', 'weather summary', etc.)
+  function getField(row, names){
+    if(!row) return '';
+    const keys = Object.keys(row);
+    for(const n of names){
+      const target = String(n).trim().toLowerCase();
+      // direct
+      for(const k of keys){
+        if(String(k).trim().toLowerCase() === target){
+          return row[k];
+        }
+      }
+    }
+    return '';
+  }
+
+function escapeHtml(str){
     return String(str ?? '').replace(/[&<>"']/g, s => ({
       '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
     }[s]));
@@ -361,27 +506,46 @@ html, body {
 
   function makePopupHTML(r){
     const sources = parseSources(r.sources);
+
+    // Build sources list with short labels (Source 1, Source 2...) but keep real URLs
     const srcHtml = sources.length
-      ? '<div style="margin-top:8px"><div style="font-weight:700;margin-bottom:4px">Sources</div>' +
-        sources.map(u => `<div style="margin:2px 0"><a href="${escapeHtml(u)}" target="_blank" rel="noopener">${escapeHtml(u)}</a></div>`).join('') +
-        '</div>'
+      ? `<div class="divider"></div>
+         <div style="font-weight:800;margin-bottom:6px">Sources</div>
+         ${sources.map((u,i) => {
+            const label = `Source ${i+1}`;
+            return `<div style="margin:4px 0">
+                      <a href="${escapeHtml(u)}" target="_blank" rel="noopener">${label}</a>
+                    </div>`;
+          }).join('')}`
+      : '';
+
+    const tags = `
+      <div class="tags">
+        <span class="tag">${escapeHtml(r.region || '—')}</span>
+        <span class="tag">Credibility: ${escapeHtml(String(r.cred || '—'))}</span>
+        ${r.status ? `<span class="tag">${escapeHtml(r.status)}</span>` : ''}
+      </div>`;
+
+    const weatherBlock = (r.weather && String(r.weather).trim())
+      ? `<div style="margin:10px 0 12px;padding:10px 12px;border:1px solid rgba(0,0,0,.08);border-radius:14px;background:#f9fafb">
+           <div style="font-weight:800;margin-bottom:6px">Weather</div>
+           <div style="font-size:13px;line-height:1.35">${escapeHtml(r.weather)}</div>
+           ${r.weather_source ? `<div style="font-size:11px;color:#6b7280;margin-top:6px">Source: ${escapeHtml(r.weather_source)}</div>` : ''}
+         </div>`
       : '';
 
     return `
-      <div style="min-width:260px;max-width:360px">
-        <div style="font-weight:800;font-size:14px;margin-bottom:4px">${escapeHtml(r.case)}</div>
-        <div style="color:#9ca3af;font-size:12px;margin-bottom:8px">${escapeHtml(r.date || '')}</div>
-        <div style="margin-bottom:8px">
-          <span class="pill">${escapeHtml(r.region || '—')}</span>
-          <span class="pill">Credibility: ${escapeHtml(String(r.cred || '—'))}</span>
-        </div>
-        <div style="font-size:12px;line-height:1.4;color:#e5e7eb">
-          <div><b>Location:</b> ${escapeHtml(r.location || '—')}</div>
-          <div style="margin-top:6px"><b>Witness:</b> ${escapeHtml(r.witness || '—')}</div>
-          <div style="margin-top:6px"><b>Evidence:</b> ${escapeHtml(r.evidence || '—')}</div>
-          <div style="margin-top:6px"><b>Status:</b> ${escapeHtml(r.status || '—')}</div>
-          <div style="margin-top:8px">${escapeHtml(r.summary || '')}</div>
-          <div style="margin-top:8px;color:#9ca3af">${escapeHtml(r.why || '')}</div>
+      <div class="popup-inner">
+        <h3>${escapeHtml(r.case)}</h3>
+        <p class="popup-date">${escapeHtml(r.date || '')}${r.time ? ` • ${escapeHtml(r.time)}` : ''}</p>
+        ${tags}
+        ${weatherBlock}
+        <div style="font-size:13px;line-height:1.45">
+          <div><span class="k">Location:</span> ${escapeHtml(r.location || '—')}</div>
+          <div style="margin-top:8px"><span class="k">Witness:</span> ${escapeHtml(r.witness || '—')}</div>
+          <div style="margin-top:8px"><span class="k">Evidence:</span> ${escapeHtml(r.evidence || '—')}</div>
+          ${r.summary ? `<div style="margin-top:10px">${escapeHtml(r.summary)}</div>` : ''}
+          ${r.why ? `<div style="margin-top:10px;color:#6b7280">${escapeHtml(r.why)}</div>` : ''}
           ${srcHtml}
         </div>
       </div>
@@ -418,7 +582,7 @@ html, body {
     const y = r.year || 0;
 
     if(q){
-      const hay = [r.case,r.location,r.region,r.summary,r.witness,r.evidence,r.status].join(' ').toLowerCase();
+      const hay = [r.case,r.location,r.region,r.summary,r.witness,r.evidence,r.status,r.weather].join(' ').toLowerCase();
       if(!hay.includes(q)) return false;
     }
     if(reg && (r.region || '') !== reg) return false;
@@ -451,6 +615,7 @@ html, body {
       div.innerHTML = `
         <p class="title">${escapeHtml(r.case)}</p>
         <p class="meta">${escapeHtml(r.location)} • ${escapeHtml(r.date || '')}</p>
+        ${r.weather ? `<p class="meta" style="margin-top:6px; color:#6b7280">Weather: ${escapeHtml(r.weather).slice(0, 90)}${(String(r.weather).length>90?'…':'')}</p>` : ''}
         <div style="margin-top:8px">
           <span class="pill">${escapeHtml(r.region || '—')}</span>
           <span class="pill">Cred: ${escapeHtml(String(r.cred || '—'))}</span>
@@ -493,32 +658,16 @@ function highlightListItem(id){
   function fitToMarkers(){
     const layers = cluster.getLayers();
     if(!layers.length) return;
+    const group = L.featureGroup(layers);
+    const b = group.getBounds();
+    const center = b.getCenter();
 
-    // Separate in-UK vs out-of-UK points (helps avoid one bad point breaking auto-zoom)
-    const inUk = [];
-    const outUk = [];
-    for(const l of layers){
-      const ll = l.getLatLng ? l.getLatLng() : null;
-      if(!ll) continue;
-      if(isWithinBounds(ll.lat, ll.lng, UK_SOFT_BOUNDS)) inUk.push(l);
-      else outUk.push(l);
-    }
-
-    // If we have any in-UK points, fit to those
-    if(inUk.length){
-      const group = L.featureGroup(inUk);
-      map.fitBounds(group.getBounds().pad(0.2));
-
-      // Only warn if a meaningful chunk are outside the UK (usually geocode/cache issues)
-      if(outUk.length >= Math.max(3, Math.ceil(layers.length * 0.2))){
-        setStatus('warn', `Loaded ${records.length} rows. ${outUk.length} marker(s) plot outside the UK (often swapped coords or a bad geocode). Map zoomed to UK markers.`);
-      }
+    if(!isWithinBounds(center.lat, center.lng, UK_SOFT_BOUNDS)){
+      setStatus('warn', 'Data loaded, but marker coordinates look outside the UK. Check your lat/lon columns (or rely on Location geocoding).');
+      map.setView([54.5, -3.0], 6);
       return;
     }
-
-    // Fallback: no in-UK points at all (keep a UK default view)
-    setStatus('warn', 'Data loaded, but marker coordinates look outside the UK. Check your lat/lon columns (or rely on Location geocoding).');
-    map.setView([54.5, -3.0], 6);
+    map.fitBounds(b.pad(0.2));
   }
 
   function initYearSlider(minY, maxY){
@@ -558,23 +707,35 @@ function highlightListItem(id){
   //  - Latitude/Longitude
   //  - Lat/Long  (your current sheet)
   function normaliseRow(r, idx){
-    const latRaw = r.lat ?? r.Latitude ?? r.latitude ?? r.Lat ?? r.LAT ?? '';
-    const lonRaw = r.lon ?? r.Longitude ?? r.longitude ?? r.Long ?? r.LONG ?? r.lng ?? r.Lng ?? '';
+    const latRaw = getField(r, ['lat','latitude','Lat','LAT']);
+    const lonRaw = getField(r, ['lon','longitude','Long','LONG','lng','Lng']);
 
     const out = {
       id: idx,
-      case: r['Case'] ?? r['case'] ?? '',
-      date: r['Date'] ?? r['date'] ?? '',
-      location: r['Location'] ?? r['location'] ?? '',
-      region: r['Region'] ?? r['region'] ?? '',
-      witness: r['Witness profile'] ?? r['Witness'] ?? r['witness'] ?? '',
-      evidence: r['Evidence'] ?? r['evidence'] ?? '',
-      summary: r['Summary'] ?? r['summary'] ?? '',
-      status: r['Status'] ?? r['status'] ?? '',
-      cred: Number(r['Credibility (1-5)'] ?? r['Credibility'] ?? r['credibility'] ?? 0),
-      why: r['Why considered reputable'] ?? r['Why'] ?? r['why'] ?? '',
-      sources: r['Sources'] ?? r['sources'] ?? '',
-      year: safeYear(r['Date'] ?? r['date'] ?? ''),
+      case: getField(r, ['Case','case']),
+      date: getField(r, ['Date','date']),
+      time: getField(r, ['Time','time']),
+      date_iso: getField(r, ['Date_ISO','date_iso','Date ISO','Date (ISO)','ISO Date']),
+      location: getField(r, ['Location','location']),
+      region: getField(r, ['Region','region']),
+      witness: getField(r, ['Witness profile','Witness','witness']),
+      evidence: getField(r, ['Evidence','evidence']),
+      summary: getField(r, ['Summary','summary']),
+      status: getField(r, ['Status','status']),
+      cred: Number(getField(r, ['Credibility (1-5)','Credibility','credibility']) || 0),
+      why: getField(r, ['Why considered reputable','Why','why']),
+      // Weather columns (support your new naming variations)
+     weather: (() => {
+  const w = String(getField(r, ['Weather','weather','Weather summary','Weather Summary','Historical weather','Historic weather','Weather (historic)','Weather (historical)']) || '').trim();
+  // If it looks like a date/date-range, ignore it (prevents Date_ISO being shown as Weather)
+  if (/^\d{4}-\d{2}(-\d{2})?(?:\s+to\s+\d{4}-\d{2}(-\d{2})?)?$/i.test(w)) return '';
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}(?:\s+to\s+\d{1,2}\/\d{1,2}\/\d{4})?$/i.test(w)) return '';
+  return w;
+})(),
+
+      weather_source: getField(r, ['Weather source','weather source','Weather Source','Weather data source','Weather Data Source']),
+      sources: getField(r, ['Sources','sources']),
+      year: safeYear(getField(r, ['Date_ISO','date_iso','Date','date'])),
       lat: Number(latRaw),
       lon: Number(lonRaw)
     };
@@ -713,6 +874,7 @@ function highlightListItem(id){
 
           render();
           fitToMarkers();
+          fixMapSizeSoon();
 
           // Fallback: geocode rows missing lat/lon (rate-limited + cached)
           geocodeMissingCoords().finally(() => resolve());
@@ -728,7 +890,7 @@ function highlightListItem(id){
     els.minCred.addEventListener(evt, () => render());
   });
 
-  els.fitBtn.addEventListener('click', fitToMarkers);
+  els.fitBtn.addEventListener('click', () => { fitToMarkers(); fixMapSizeSoon(); });
   els.resetBtn.addEventListener('click', () => {
     els.search.value = '';
     els.region.value = '';
