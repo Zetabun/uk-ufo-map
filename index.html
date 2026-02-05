@@ -292,6 +292,55 @@ select:focus {
   /* Lighten the dark basemap slightly for a more stylish, readable 'dark mode' */
   #map .leaflet-tile { filter: brightness(1.25) contrast(1.05) saturate(1.1); }
   #map .leaflet-tile-pane { background: #0b1020; }
+
+/* --- Marker + cluster styling (more polished) --- */
+#map .leaflet-interactive.ufo-marker{
+  filter: drop-shadow(0 6px 12px rgba(0,0,0,.35));
+  transition: transform .15s ease, filter .15s ease, opacity .15s ease;
+}
+#map .leaflet-interactive.ufo-marker:hover{
+  filter: drop-shadow(0 10px 18px rgba(0,0,0,.45)) drop-shadow(0 0 10px rgba(255,255,255,.10));
+  transform: scale(1.08);
+}
+
+/* Cluster: glassy pill with subtle gradient + border */
+.ufo-cluster{
+  border-radius:999px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.ufo-cluster .ufo-cluster-inner{
+  width:42px;height:42px;
+  border-radius:999px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:800;
+  font-size:13px;
+  letter-spacing:.2px;
+  color:#0b0f19;
+  background:
+    radial-gradient(circle at 30% 25%, rgba(255,255,255,.65), rgba(255,255,255,0) 45%),
+    linear-gradient(180deg, rgba(255,255,255,.25), rgba(255,255,255,.05));
+  border:1px solid rgba(255,255,255,.28);
+  box-shadow: 0 10px 22px rgba(0,0,0,.35);
+  backdrop-filter: blur(6px);
+}
+.ufo-cluster.small .ufo-cluster-inner{ width:40px;height:40px; }
+.ufo-cluster.med   .ufo-cluster-inner{ width:48px;height:48px; font-size:14px; }
+.ufo-cluster.large .ufo-cluster-inner{ width:58px;height:58px; font-size:15px; }
+
+.ufo-cluster.small .ufo-cluster-inner{ background-color: rgba(34,197,94,.90); }
+.ufo-cluster.med   .ufo-cluster-inner{ background-color: rgba(96,165,250,.92); }
+.ufo-cluster.large .ufo-cluster-inner{ background-color: rgba(245,158,11,.92); }
+
+/* Tidy up default MarkerCluster styling so ours wins */
+.marker-cluster, .marker-cluster div{ background: transparent !important; }
+
+/* Slightly soften the basemap without going full-dark */
+#map .leaflet-tile{ filter: brightness(1.20) contrast(1.06) saturate(1.08); }
+
 </style>
 </head>
 
@@ -435,7 +484,20 @@ select:focus {
     attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
   }).addTo(map);
 
-  const cluster = L.markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 50 });
+  const cluster = L.markerClusterGroup({
+    showCoverageOnHover: false,
+    maxClusterRadius: 50,
+    spiderfyOnMaxZoom: true,
+    iconCreateFunction: (c) => {
+      const count = c.getChildCount();
+      const size = count < 10 ? 'small' : (count < 50 ? 'med' : 'large');
+      return L.divIcon({
+        html: `<div class="ufo-cluster ${size}"><div class="ufo-cluster-inner">${count}</div></div>`,
+        className: '',
+        iconSize: L.point(size === 'small' ? 44 : (size === 'med' ? 54 : 64), size === 'small' ? 44 : (size === 'med' ? 54 : 64))
+      });
+    }
+  });
   map.addLayer(cluster);
 
   // Fix occasional "map misalignment" (Leaflet needs a resize invalidate after layout settles)
@@ -608,14 +670,21 @@ function escapeHtml(str){
     return '#f59e0b';
   }
 
-  function makeCircleMarker(lat, lon, cred){
+  function makeCircleMarker(lat, lon, cred, encounterRaw){
     const color = markerColorByCred(cred);
+    const raw = String(encounterRaw || '').trim().toLowerCase();
+    const isYes = ['yes','y','true','1'].includes(raw);
+    const enc = raw ? (isYes ? 'yes' : 'no') : 'no';
+
+    // Slightly larger + fuller fill so it reads well on dark maps
     return L.circleMarker([lat, lon], {
-      radius: 7,
+      radius: 6.5,
       weight: 2,
       color: color,
       fillColor: color,
-      fillOpacity: 0.25
+      fillOpacity: 0.65,
+      opacity: 0.95,
+      className: `ufo-marker ufo-cred-${Math.max(0, Math.min(5, Number(cred||0)))} ufo-enc-${enc}`
     });
   }
 
@@ -658,7 +727,7 @@ function escapeHtml(str){
 
     for(const r of shown){
       if(!Number.isFinite(r.lat) || !Number.isFinite(r.lon)) continue;
-      const m = makeCircleMarker(r.lat, r.lon, r.cred);
+      const m = makeCircleMarker(r.lat, r.lon, r.cred, r.encounter);
       m.bindPopup(makePopupHTML(r), { maxWidth: 420 });
       m.on('click', () => highlightListItem(r.id));
       cluster.addLayer(m);
