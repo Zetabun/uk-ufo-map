@@ -294,48 +294,97 @@ select:focus {
   #map .leaflet-tile-pane { background: #0b1020; }
 
 /* --- Marker + cluster styling (more polished) --- */
-#map .leaflet-interactive.ufo-marker{
-  filter: drop-shadow(0 6px 12px rgba(0,0,0,.35));
-  transition: transform .15s ease, filter .15s ease, opacity .15s ease;
-}
-#map .leaflet-interactive.ufo-marker:hover{
-  filter: drop-shadow(0 10px 18px rgba(0,0,0,.45)) drop-shadow(0 0 10px rgba(255,255,255,.10));
-  transform: scale(1.08);
-}
-
-/* Cluster: glassy pill with subtle gradient + border */
-.ufo-cluster{
+#map .ufo-pin{
+  width:22px;height:22px;
   border-radius:999px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
+  position:relative;
+  transform: translate3d(0,0,0);
+  box-shadow: 0 10px 24px rgba(0,0,0,.45);
 }
-.ufo-cluster .ufo-cluster-inner{
-  width:42px;height:42px;
+#map .ufo-pin::before{
+  content:"";
+  position:absolute;inset:-7px;
   border-radius:999px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-weight:800;
-  font-size:13px;
-  letter-spacing:.2px;
-  color:#0b0f19;
+  background: radial-gradient(circle, rgba(255,255,255,.28), rgba(255,255,255,0) 60%);
+  filter: blur(0.2px);
+  opacity:.75;
+  pointer-events:none;
+}
+#map .ufo-pin::after{
+  content:"";
+  position:absolute;inset:5px;
+  border-radius:999px;
+  background: rgba(0,0,0,.28);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.25);
+  pointer-events:none;
+}
+#map .ufo-pin .ufo-core{
+  position:absolute;inset:0;
+  border-radius:999px;
+  border:2px solid rgba(255,255,255,.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.25),
+    inset 0 -6px 12px rgba(0,0,0,.25);
   background:
-    radial-gradient(circle at 30% 25%, rgba(255,255,255,.65), rgba(255,255,255,0) 45%),
-    linear-gradient(180deg, rgba(255,255,255,.25), rgba(255,255,255,.05));
-  border:1px solid rgba(255,255,255,.28);
-  box-shadow: 0 10px 22px rgba(0,0,0,.35);
-  backdrop-filter: blur(6px);
+    radial-gradient(circle at 30% 25%, rgba(255,255,255,.35), rgba(255,255,255,0) 45%),
+    linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,0));
 }
-.ufo-cluster.small .ufo-cluster-inner{ width:40px;height:40px; }
-.ufo-cluster.med   .ufo-cluster-inner{ width:48px;height:48px; font-size:14px; }
-.ufo-cluster.large .ufo-cluster-inner{ width:58px;height:58px; font-size:15px; }
+#map .ufo-pin:hover{
+  transform: scale(1.08);
+  box-shadow: 0 14px 32px rgba(0,0,0,.55);
+}
+#map .ufo-pin:hover::before{ opacity: 1; }
 
-.ufo-cluster.small .ufo-cluster-inner{ background-color: rgba(34,197,94,.90); }
-.ufo-cluster.med   .ufo-cluster-inner{ background-color: rgba(96,165,250,.92); }
-.ufo-cluster.large .ufo-cluster-inner{ background-color: rgba(245,158,11,.92); }
+/* Credibility colour (applied via inline style + class for safety) */
+#map .ufo-pin.ufo-c-green { outline: 0; }
+#map .ufo-pin.ufo-c-blue  { outline: 0; }
+#map .ufo-pin.ufo-c-amber { outline: 0; }
 
-/* Tidy up default MarkerCluster styling so ours wins */
+/* Encounter = yes gets a subtle pulse ring */
+#map .ufo-pin.ufo-enc-yes::before{
+  animation: ufoPulse 1.8s ease-out infinite;
+}
+@keyframes ufoPulse{
+  0%{ transform: scale(.85); opacity:.75; }
+  70%{ transform: scale(1.25); opacity:0; }
+  100%{ transform: scale(1.25); opacity:0; }
+}
+
+/* Cluster: modern stacked badge (less “blob”) */
+.ufo-cluster-badge{
+  width:44px;height:44px;
+  border-radius:999px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  position:relative;
+  font-weight:900;
+  font-size:13px;
+  color: rgba(8,12,20,.92);
+  letter-spacing:.2px;
+  box-shadow: 0 12px 26px rgba(0,0,0,.45);
+  border: 1px solid rgba(255,255,255,.22);
+  backdrop-filter: blur(8px);
+  background:
+    radial-gradient(circle at 30% 25%, rgba(255,255,255,.55), rgba(255,255,255,0) 45%),
+    linear-gradient(180deg, rgba(255,255,255,.18), rgba(255,255,255,.04));
+}
+.ufo-cluster-badge::before{
+  content:"";
+  position:absolute;inset:-7px;
+  border-radius:999px;
+  background: radial-gradient(circle, rgba(255,255,255,.22), rgba(255,255,255,0) 60%);
+  opacity:.65;
+}
+.ufo-cluster--small{ width:42px;height:42px; font-size:13px; }
+.ufo-cluster--med  { width:54px;height:54px; font-size:14px; }
+.ufo-cluster--large{ width:66px;height:66px; font-size:15px; }
+
+.ufo-cluster--small{ background-color: rgba(34,197,94,.90); }
+.ufo-cluster--med  { background-color: rgba(96,165,250,.92); }
+.ufo-cluster--large{ background-color: rgba(245,158,11,.92); }
+
+/* Remove default MarkerCluster fills so ours wins */
 .marker-cluster, .marker-cluster div{ background: transparent !important; }
 
 /* Slightly soften the basemap without going full-dark */
@@ -492,9 +541,9 @@ select:focus {
       const count = c.getChildCount();
       const size = count < 10 ? 'small' : (count < 50 ? 'med' : 'large');
       return L.divIcon({
-        html: `<div class="ufo-cluster ${size}"><div class="ufo-cluster-inner">${count}</div></div>`,
+        html: `<div class="ufo-cluster-badge ufo-cluster--${size}">${count}</div>`,
         className: '',
-        iconSize: L.point(size === 'small' ? 44 : (size === 'med' ? 54 : 64), size === 'small' ? 44 : (size === 'med' ? 54 : 64))
+        iconSize: L.point(size === 'small' ? 44 : (size === 'med' ? 56 : 68), size === 'small' ? 44 : (size === 'med' ? 56 : 68))
       });
     }
   });
@@ -670,22 +719,24 @@ function escapeHtml(str){
     return '#f59e0b';
   }
 
-  function makeCircleMarker(lat, lon, cred, encounterRaw){
+  function makeMarker(lat, lon, cred, encounterRaw){
     const color = markerColorByCred(cred);
     const raw = String(encounterRaw || '').trim().toLowerCase();
     const isYes = ['yes','y','true','1'].includes(raw);
     const enc = raw ? (isYes ? 'yes' : 'no') : 'no';
 
-    // Slightly larger + fuller fill so it reads well on dark maps
-    return L.circleMarker([lat, lon], {
-      radius: 6.5,
-      weight: 2,
-      color: color,
-      fillColor: color,
-      fillOpacity: 0.65,
-      opacity: 0.95,
-      className: `ufo-marker ufo-cred-${Math.max(0, Math.min(5, Number(cred||0)))} ufo-enc-${enc}`
+    const colorClass = (Number(cred || 0) >= 4) ? 'ufo-c-green' : ((Number(cred || 0) >= 3) ? 'ufo-c-blue' : 'ufo-c-amber');
+
+    const icon = L.divIcon({
+      className: '',
+      iconSize: [22, 22],
+      iconAnchor: [11, 11],
+      html: `<div class="ufo-pin ${colorClass} ufo-enc-${enc}" style="background:${color};">
+               <div class="ufo-core"></div>
+             </div>`
     });
+
+    return L.marker([lat, lon], { icon, keyboard: false, riseOnHover: true });
   }
 
   function clearMarkers(){
@@ -727,7 +778,7 @@ function escapeHtml(str){
 
     for(const r of shown){
       if(!Number.isFinite(r.lat) || !Number.isFinite(r.lon)) continue;
-      const m = makeCircleMarker(r.lat, r.lon, r.cred, r.encounter);
+      const m = makeMarker(r.lat, r.lon, r.cred, r.encounter);
       m.bindPopup(makePopupHTML(r), { maxWidth: 420 });
       m.on('click', () => highlightListItem(r.id));
       cluster.addLayer(m);
