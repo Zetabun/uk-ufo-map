@@ -243,6 +243,47 @@ html, body {
   color: #111827;
 }
 
+/* --- Dark dropdowns (select + options) --- */
+select, option {
+  background: #0b1220;
+  color: #e5e7eb;
+}
+
+select {
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 14px;
+  padding: 10px 12px;
+  outline: none;
+  box-shadow: none;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+
+/* Custom arrow (so it still looks like a dropdown) */
+.select-wrap {
+  position: relative;
+}
+.select-wrap::after {
+  content: "▾";
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: rgba(229,231,235,0.8);
+  font-size: 14px;
+}
+
+/* Hover / focus */
+select:hover {
+  border-color: rgba(255,255,255,0.22);
+}
+select:focus {
+  border-color: rgba(96,165,250,0.7);
+  box-shadow: 0 0 0 4px rgba(96,165,250,0.12);
+}
+
 	
   </style>
 </head>
