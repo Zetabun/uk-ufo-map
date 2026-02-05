@@ -95,42 +95,27 @@
     .hint{font-size:12px;color:var(--muted);line-height:1.35}
     .smallbtn{font-size:11px;padding:6px 8px;border-radius:10px}
 	
-	/* Leaflet popups: match the neon HUD theme */
+	/* Make Leaflet popups readable (force light-theme text) */
 .leaflet-popup-content-wrapper,
-.leaflet-popup-tip{
-  background: rgba(7, 12, 24, 0.92) !important;
-  color: var(--text) !important;
-  border: 1px solid rgba(96,165,250,0.45) !important;
-  border-radius: 18px !important;
-  box-shadow:
-    0 20px 60px rgba(0,0,0,0.55),
-    0 0 0 1px rgba(96,165,250,0.16),
-    0 0 34px rgba(96,165,250,0.18) !important;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+.leaflet-popup-tip {
+  background: #ffffff !important;
+  color: #111827 !important;
 }
 
-/* Ensure popup text inherits our dark theme */
-.leaflet-popup-content{
-  color: var(--text) !important;
-}
-.leaflet-popup-content *{
-  color: inherit !important;
-}
-.leaflet-popup-content a{
-  color: #7dd3fc !important;
-  text-decoration: none !important;
+.leaflet-popup-content{ color:#111827 !important; }
+.leaflet-popup-content *{ color:#111827 !important; }.leaflet-popup-content a {
+  color: #1d4ed8 !important;
+  text-decoration: underline;
   word-break: break-word;
 }
-.leaflet-popup-content a:hover{
-  text-decoration: underline !important;
+
+.leaflet-popup-content b,
+.leaflet-popup-content strong {
+  color: #111827 !important;
 }
 
-.leaflet-popup-close-button{
-  color: rgba(229,231,235,0.9) !important;
-}
-.leaflet-popup-close-button:hover{
-  color: #ffffff !important;
+.leaflet-popup-close-button {
+  color: #111827 !important;
 }
 
 html, body {
@@ -164,20 +149,52 @@ html, body {
 
 #yearSlider .noUi-handle {
   width: 18px;              /* handle size */
-  height: /* --- Leaflet popup layout (neon card) --- */
-.leaflet-popup-content{
-  margin: 0 !important;
-  width: 360px !important;
-  max-width: 360px !important;
-  font-family: inherit;
+  height: 18px;
+  right: -9px;              /* keeps it centered */
+  top: -5px;                /* vertical align to track */
+  border-radius: 999px;
+  border: 2px solid rgba(255,255,255,0.35);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.25);
 }
 
+#yearSlider .noUi-handle:before,
+#yearSlider .noUi-handle:after {
+  display: none;            /* removes the two little bars */
+}
+
+#yearSlider .noUi-touch-area {
+  border-radius: 999px;
+}
+	
+	
+/* --- Leaflet popup: modern card styling --- */
+.leaflet-popup-content-wrapper{
+  border-radius: 18px !important;
+  padding: 0 !important;
+  box-shadow: 0 18px 50px rgba(0,0,0,0.22) !important;
+  border: 1px solid rgba(0,0,0,0.08) !important;
+}
+
+.leaflet-popup-tip{
+  box-shadow: 0 12px 30px rgba(0,0,0,0.18) !important;
+}
+
+.leaflet-popup-content{
+  margin: 0 !important;
+  width: 360px !important;       /* consistent size */
+  max-width: 360px !important;
+  font-family: inherit;
+  color: #111827;
+}
+
+/* Scroll inside popup instead of giant bubbles */
 .leaflet-popup-content .popup-inner{
   padding: 16px 16px 14px 16px;
   max-height: 70vh;
   overflow: auto;
 }
 
+/* Headings + spacing */
 .leaflet-popup-content h3{
   margin: 0 0 6px 0;
   font-size: 18px;
@@ -186,36 +203,28 @@ html, body {
 }
 
 .leaflet-popup-content .popup-date{
-  color: rgba(229,231,235,0.72);
+  color: #6b7280;
   font-size: 13px;
   margin: 0 0 12px 0;
 }
 
-.leaflet-popup-content .k{ font-weight: 800; }
+/* Section labels */
+.leaflet-popup-content .k{
+  font-weight: 700;
+}
 
+/* Subtle divider */
 .leaflet-popup-content .divider{
   height: 1px;
-  background: rgba(255,255,255,0.12);
+  background: rgba(0,0,0,0.08);
   margin: 12px 0;
 }
 
-.leaflet-popup-content .tags{
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin: 8px 0 10px;
+/* Nicer source links */
+.leaflet-popup-content a{
+  color: #1d4ed8;
+  text-decoration: none;
 }
-.leaflet-popup-content .tag{
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 10px;
-  font-size: 12px;
-  border-radius: 999px;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.12);
-  color: rgba(229,231,235,0.88);
-}
-
 .leaflet-popup-content a:hover{
   text-decoration: underline;
 }
@@ -472,6 +481,12 @@ select:focus {
     return String(src).split(/[\n;]+/).map(s=>s.trim()).filter(Boolean);
   }
 
+  function parseVideos(v){
+    if(!v) return [];
+    return String(v).split(/[\n;]+/).map(s=>s.trim()).filter(Boolean);
+  }
+
+
   
   // Case-insensitive, trimmed header lookup (handles 'Weather ', 'weather summary', etc.)
   function getField(row, names){
@@ -497,17 +512,35 @@ function escapeHtml(str){
 
   function makePopupHTML(r){
     const sources = parseSources(r.sources);
+    const videos  = parseVideos(r.videos);
 
-    // Build sources list with short labels (Source 1, Source 2...) but keep real URLs
-    const srcHtml = sources.length
+    // Build sources + videos lists (show Videos only when links exist)
+    const srcList = sources.map((u,i) => {
+      const label = `Source ${i+1}`;
+      return `<div style="margin:4px 0">
+                <a href="${escapeHtml(u)}" target="_blank" rel="noopener">${label}</a>
+              </div>`;
+    }).join('');
+
+    const vidList = videos.map((u,i) => {
+      const label = `Video ${i+1}`;
+      return `<div style="margin:4px 0">
+                <a href="${escapeHtml(u)}" target="_blank" rel="noopener">${label}</a>
+              </div>`;
+    }).join('');
+
+    const footerHtml = (sources.length || videos.length)
       ? `<div class="divider"></div>
-         <div style="font-weight:800;margin-bottom:6px">Sources</div>
-         ${sources.map((u,i) => {
-            const label = `Source ${i+1}`;
-            return `<div style="margin:4px 0">
-                      <a href="${escapeHtml(u)}" target="_blank" rel="noopener">${label}</a>
-                    </div>`;
-          }).join('')}`
+         <div style="display:flex;gap:14px;align-items:flex-start">
+           ${sources.length ? `<div style="flex:1;min-width:0">
+             <div style="font-weight:800;margin-bottom:6px">Sources</div>
+             ${srcList}
+           </div>` : ''}
+           ${videos.length ? `<div style="flex:1;min-width:0">
+             <div style="font-weight:800;margin-bottom:6px">Videos</div>
+             ${vidList}
+           </div>` : ''}
+         </div>`
       : '';
 
     const tags = `
@@ -518,10 +551,10 @@ function escapeHtml(str){
       </div>`;
 
     const weatherBlock = (r.weather && String(r.weather).trim())
-      ? `<div style="margin:10px 0 12px;padding:10px 12px;border:1px solid rgba(255,255,255,0.12);border-radius:14px;background:rgba(255,255,255,0.04)">
+      ? `<div style="margin:10px 0 12px;padding:10px 12px;border:1px solid rgba(0,0,0,.08);border-radius:14px;background:#f9fafb">
            <div style="font-weight:800;margin-bottom:6px">Weather</div>
            <div style="font-size:13px;line-height:1.35">${escapeHtml(r.weather)}</div>
-           ${r.weather_source ? `<div style="font-size:11px;color:rgba(229,231,235,0.68);margin-top:6px">Source: ${escapeHtml(r.weather_source)}</div>` : ''}
+           ${r.weather_source ? `<div style="font-size:11px;color:#6b7280;margin-top:6px">Source: ${escapeHtml(r.weather_source)}</div>` : ''}
          </div>`
       : '';
 
@@ -537,7 +570,7 @@ function escapeHtml(str){
           <div style="margin-top:8px"><span class="k">Evidence:</span> ${escapeHtml(r.evidence || '—')}</div>
           ${r.summary ? `<div style="margin-top:10px">${escapeHtml(r.summary)}</div>` : ''}
           ${r.why ? `<div style="margin-top:10px;color:#6b7280">${escapeHtml(r.why)}</div>` : ''}
-          ${srcHtml}
+          ${footerHtml}
         </div>
       </div>
     `;
@@ -726,6 +759,7 @@ function highlightListItem(id){
 
       weather_source: getField(r, ['Weather source','weather source','Weather Source','Weather data source','Weather Data Source']),
       sources: getField(r, ['Sources','sources']),
+      videos:  getField(r, ['Videos','videos','Video','video']),
       year: safeYear(getField(r, ['Date_ISO','date_iso','Date','date'])),
       lat: Number(latRaw),
       lon: Number(lonRaw)
