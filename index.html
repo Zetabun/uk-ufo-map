@@ -13,10 +13,6 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-
-  <!-- SheetJS (XLSX) -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.19.3/dist/xlsx.full.min.js"></script>
-
   <!-- noUiSlider -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/nouislider@15.7.1/dist/nouislider.min.css">
   <script src="https://cdn.jsdelivr.net/npm/nouislider@15.7.1/dist/nouislider.min.js"></script>
@@ -160,7 +156,7 @@
 <header>
   <div class="left">
     <h1>UK UFO / “Alien” Sightings (Curated)</h1>
-    <p>Data source: <strong>uk_ufo_sightings_uk.xlsx</strong> (edit the Excel, refresh the page).</p>
+    <p>Data source: <strong>Google Sheets (published CSV)</strong> (edit the sheet, refresh the page).</p>
   </div>
   <div class="right">
     <button class="btn" id="fitBtn">Fit to markers</button>
@@ -193,7 +189,7 @@
       <div style="height:10px"></div>
       <div class="hint">
         Geocoding uses OpenStreetMap Nominatim. Results are cached in your browser to avoid repeat lookups.
-        If you move the Excel file or rename locations, use <button class="btn smallbtn" id="clearCacheBtn">Clear cache</button>.
+        If you rename locations, use <button class="btn smallbtn" id="clearCacheBtn">Clear cache</button>.
       </div>
     </div>
 
@@ -259,8 +255,8 @@
 
 <script>
 (function(){
-  const XLSX_PATH = './uk_ufo_sightings_uk.xlsx';
-  const CACHE_KEY = 'ufo_geo_cache_v1';
+  const SHEET_CSV_URL = 'PASTE_YOUR_PUBLISHED_CSV_URL_HERE';
+  const CACHE_KEY = 'ufo_geo_cache_v2';
 
   const els = {
     statusDot: document.getElementById('statusDot'),
@@ -529,35 +525,100 @@
     els.region.innerHTML = '<option value="">All</option>' + regions.map(r => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join('');
   }
 
-  // Load spreadsheet
-  async function loadSpreadsheet(){
-    setStatus('warn','Loading spreadsheet…');
-    const res = await fetch(XLSX_PATH);
-    if(!res.ok) throw new Error('Could not fetch ' + XLSX_PATH + ' (HTTP ' + res.status + ')');
-    const buf = await res.arrayBuffer();
-    const wb = XLSX.read(buf, { type: 'array' });
-    const sheet = wb.Sheets['Sightings'];
-    if(!sheet) throw new Error('Sheet "Sightings" not found in spreadsheet.');
-    const json = XLSX.utils.sheet_to_json(sheet, { defval: '' });
 
-    // Normalise
-    records = json.map((r, idx) => ({
-      id: idx,
-      case: r['Case'],
-      date: r['Date'],
-      location: r['Location'],
-      region: r['Region'],
-      witness: r['Witness profile'],
-      evidence: r['Evidence'],
-      summary: r['Summary'],
-      status: r['Status'],
-      cred: Number(r['Credibility (1-5)'] || 0),
-      why: r['Why considered reputable'],
-      sources: r['Sources'],
-      year: safeYear(r['Date']),
-      lat: null,
-      lon: null
-    }));
+  function parseCSV(text){
+    // Simple RFC4180-ish CSV parser supporting quoted fields and newlines in quotes
+    const rows = [];
+    let row = [];
+    let cur = '';
+    let inQuotes = false;
+    for(let i=0;i<text.length;i++){
+      const ch = text[i];
+      const next = text[i+1];
+      if(inQuotes){
+        if(ch === '"' && next === '"'){ cur += '"'; i++; }
+        else if(ch === '"'){ inQuotes = false; }
+        else { cur += ch; }
+      }else{
+        if(ch === '"'){ inQuotes = true; }
+        else if(ch === ','){ row.push(cur); cur=''; }
+        else if(ch === '\r'){ continue; }
+        else if(ch === '\n'){ row.push(cur); rows.push(row); row=[]; cur=''; }
+        else { cur += ch; }
+      }
+    }
+    // flush last
+    if(cur.length || row.length){ row.push(cur); rows.push(row); }
+    if(!rows.length) return [];
+    const header = rows[0].map(h => String(h || '').trim());
+    const out = [];
+    for(let r=1;r<rows.length;r++){
+      const obj = {};
+      for(let c=0;c<header.length;c++){
+        obj[header[c]] = rows[r][c] ?? '';
+      }
+      out.push(obj);
+    }
+    return out;
+  }
+
+  function getFieldCI(row, names){
+    const keys = Object.keys(row || {});
+    const map = new Map(keys.map(k => [String(k).trim().toLowerCase(), k]));
+    for(const n of names){
+      const key = map.get(String(n).trim().toLowerCase());
+      if(key !== undefined) return row[key];
+    }
+    return '';
+  }
+
+  function toNum(x){
+    const n = Number(String(x ?? '').trim());
+    return Number.isFinite(n) ? n : null;
+  }
+
+  // Load spreadsheet (Google Sheets published CSV)
+  async function loadSpreadsheet(){
+    setStatus('warn','Loading sheet…');
+
+    if(!SHEET_CSV_URL || SHEET_CSV_URL.includes('PASTE_YOUR_PUBLISHED_CSV_URL_HERE')){
+      throw new Error('Set SHEET_CSV_URL to your Google Sheets published CSV URL.');
+    }
+
+    const res = await fetch(SHEET_CSV_URL, { cache: 'no-store' });
+    if(!res.ok) throw new Error('Could not fetch sheet CSV (HTTP ' + res.status + ')');
+    const csvText = await res.text();
+    const json = parseCSV(csvText);
+
+    // Normalise with flexible header matching (case-insensitive)
+    records = json.map((r, idx) => {
+      const date = getFieldCI(r, ['Date','date']);
+      const dateIso = getFieldCI(r, ['Date_ISO','date_iso','Date ISO','ISO Date','Date (ISO)']);
+      const time = getFieldCI(r, ['Time','time']);
+      const lat = toNum(getFieldCI(r, ['lat','Lat','latitude','Latitude']));
+      const lon = toNum(getFieldCI(r, ['lon','Lon','lng','Lng','long','Long','longitude','Longitude']));
+      return {
+        id: idx,
+        case: getFieldCI(r, ['Case','case']),
+        date: date,
+        time: time,
+        date_iso: dateIso,
+        location: getFieldCI(r, ['Location','location']),
+        region: getFieldCI(r, ['Region','region']),
+        witness: getFieldCI(r, ['Witness profile','Witness','witness']),
+        evidence: getFieldCI(r, ['Evidence','evidence']),
+        summary: getFieldCI(r, ['Summary','summary']),
+        status: getFieldCI(r, ['Status','status']),
+        cred: Number(getFieldCI(r, ['Credibility (1-5)','Credibility','credibility']) || 0),
+        why: getFieldCI(r, ['Why considered reputable','Why','why']),
+        sources: getFieldCI(r, ['Sources','sources']),
+        weather: getFieldCI(r, ['Weather','weather','Historical weather','Weather summary']),
+        weather_source: getFieldCI(r, ['Weather source','Weather Source','weather source']),
+        year: safeYear(dateIso || date),
+        lat: lat,
+        lon: lon
+      };
+    });
 
     els.kpiTotal.textContent = records.length;
 
@@ -568,14 +629,28 @@
     initYearSlider(minY, maxY);
 
     populateRegionOptions();
+
+    // If coords already present, skip geocoding for those
+    const needsGeo = records.filter(r => (!r.lat || !r.lon) && r.location);
+    if(!needsGeo.length){
+      setStatus('ok','Loaded from sheet (using provided coordinates).');
+      setProgress(1,1);
+      render();
+      fitToMarkers();
+      return;
+    }
+
     setStatus('warn','Geocoding locations (cached results are instant)…');
 
-    // Geocode with polite pacing
     let done = 0;
     setProgress(0, records.length);
 
     for(const r of records){
+      // If coords supplied, do not geocode
+      if(r.lat && r.lon){ done++; setProgress(done, records.length); continue; }
+
       if(!r.location){ done++; setProgress(done, records.length); continue; }
+
       const cacheKey = r.location.trim().toLowerCase();
       if(geoCache[cacheKey]){
         r.lat = geoCache[cacheKey].lat;
@@ -583,6 +658,20 @@
         done++; setProgress(done, records.length);
         continue;
       }
+      try{
+        const g = await geocodeLocation(r.location + ', UK');
+        r.lat = g.lat; r.lon = g.lon;
+      }catch(e){
+        console.warn(e);
+      }
+      done++; setProgress(done, records.length);
+      await new Promise(res => setTimeout(res, 1100));
+    }
+
+    setStatus('ok','Loaded. Adjust filters or click a case.');
+    render();
+    fitToMarkers();
+  }
       try{
         const g = await geocodeLocation(r.location + ', UK');
         r.lat = g.lat; r.lon = g.lon;
