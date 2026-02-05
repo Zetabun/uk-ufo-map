@@ -288,6 +288,10 @@ select:focus {
   box-shadow: 0 0 0 4px rgba(96,165,250,0.12);
 }
 
+
+  /* Lighten the dark basemap slightly for a more stylish, readable 'dark mode' */
+  #map .leaflet-tile { filter: brightness(1.25) contrast(1.05) saturate(1.1); }
+  #map .leaflet-tile-pane { background: #0b1020; }
 </style>
 </head>
 
