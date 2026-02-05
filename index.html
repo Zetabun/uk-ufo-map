@@ -319,7 +319,7 @@ select:focus {
       <div style="height:10px"></div>
       <div class="status">
         <span class="dot warn" id="statusDot"></span>
-        <span id="statusText">Loading spreadsheet…</span>
+        <span id="statusText">Loading cases…</span>
       </div>
       <div style="height:10px"></div>
       <div class="progress" title="Load progress">
@@ -919,7 +919,7 @@ function highlightListItem(id){
   }
 
   async function loadFromGoogleSheets(){
-    setStatus('warn','Loading Google Sheet…');
+    setStatus('warn','Loading cases…');
     setProgress(0, 1);
 
     const url = SHEET_CSV_URL + (SHEET_CSV_URL.includes('?') ? '&' : '?') + 't=' + Date.now();
