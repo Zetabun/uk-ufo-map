@@ -356,6 +356,17 @@ select:focus {
             <option value="5">5</option>
           </select>
         </div>
+
+      <div style="height:12px"></div>
+      <div class="row">
+        <div>
+          <label for="encounter">Encounter</label>
+          <select id="encounter">
+            <option value="">All</option>
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+          </select>
+        </div>
       </div>
 
       <div style="height:12px"></div>
@@ -411,7 +422,8 @@ select:focus {
     resetBtn: document.getElementById('resetBtn'),
     yearSlider: document.getElementById('yearSlider'),
     yearMin: document.getElementById('yearMin'),
-    yearMax: document.getElementById('yearMax')
+    yearMax: document.getElementById('yearMax'),
+    encounter: document.getElementById('encounter')
   };
 
   // Map
@@ -510,44 +522,56 @@ function escapeHtml(str){
     }[s]));
   }
 
-  function makePopupHTML(r){
+    function makePopupHTML(r){
     const sources = parseSources(r.sources);
-    const videos  = parseVideos(r.videos);
+    const videos = parseVideos(r.videos);
 
-    // Build sources + videos lists (show Videos only when links exist)
-    const srcList = sources.map((u,i) => {
-      const label = `Source ${i+1}`;
-      return `<div style="margin:4px 0">
-                <a href="${escapeHtml(u)}" target="_blank" rel="noopener">${label}</a>
-              </div>`;
-    }).join('');
-
-    const vidList = videos.map((u,i) => {
-      const label = `Video ${i+1}`;
-      return `<div style="margin:4px 0">
-                <a href="${escapeHtml(u)}" target="_blank" rel="noopener">${label}</a>
-              </div>`;
-    }).join('');
-
-    const footerHtml = (sources.length || videos.length)
-      ? `<div class="divider"></div>
-         <div style="display:flex;gap:14px;align-items:flex-start">
-           ${sources.length ? `<div style="flex:1;min-width:0">
-             <div style="font-weight:800;margin-bottom:6px">Sources</div>
-             ${srcList}
-           </div>` : ''}
-           ${videos.length ? `<div style="flex:1;min-width:0">
-             <div style="font-weight:800;margin-bottom:6px">Videos</div>
-             ${vidList}
-           </div>` : ''}
-         </div>`
+    const sourcesBlock = sources.length
+      ? `<div style="font-weight:800;margin-bottom:6px">Sources</div>
+         ${sources.map((u,i) => {
+            const label = `Source ${i+1}`;
+            return `<div style="margin:4px 0">
+                      <a href="${escapeHtml(u)}" target="_blank" rel="noopener">${label}</a>
+                    </div>`;
+          }).join('')}`
       : '';
+
+    const videosBlock = videos.length
+      ? `<div style="font-weight:800;margin-bottom:6px">Videos</div>
+         ${videos.map((u,i) => {
+            const label = `Video ${i+1}`;
+            return `<div style="margin:4px 0">
+                      <a href="${escapeHtml(u)}" target="_blank" rel="noopener">${label}</a>
+                    </div>`;
+          }).join('')}`
+      : '';
+
+    let linksHtml = '';
+    if(sources.length || videos.length){
+      if(sources.length && videos.length){
+        linksHtml = `<div class="divider"></div>
+          <div style="display:flex;gap:14px;align-items:flex-start">
+            <div style="flex:1;min-width:0">${sourcesBlock}</div>
+            <div style="flex:1;min-width:0">${videosBlock}</div>
+          </div>`;
+      }else if(sources.length){
+        linksHtml = `<div class="divider"></div>${sourcesBlock}`;
+      }else{
+        linksHtml = `<div class="divider"></div>${videosBlock}`;
+      }
+    }
 
     const tags = `
       <div class="tags">
         <span class="tag">${escapeHtml(r.region || '—')}</span>
         <span class="tag">Credibility: ${escapeHtml(String(r.cred || '—'))}</span>
         ${r.status ? `<span class="tag">${escapeHtml(r.status)}</span>` : ''}
+        ${(() => {
+          const raw = String(r.encounter || '').trim().toLowerCase();
+          const isYes = ['yes','y','true','1'].includes(raw);
+          const enc = raw ? (isYes ? 'Yes' : 'No') : 'No';
+          return `<span class="tag">Encounter: ${enc}</span>`;
+        })()}
       </div>`;
 
     const weatherBlock = (r.weather && String(r.weather).trim())
@@ -570,7 +594,7 @@ function escapeHtml(str){
           <div style="margin-top:8px"><span class="k">Evidence:</span> ${escapeHtml(r.evidence || '—')}</div>
           ${r.summary ? `<div style="margin-top:10px">${escapeHtml(r.summary)}</div>` : ''}
           ${r.why ? `<div style="margin-top:10px;color:#6b7280">${escapeHtml(r.why)}</div>` : ''}
-          ${footerHtml}
+          ${linksHtml}
         </div>
       </div>
     `;
@@ -604,6 +628,7 @@ function escapeHtml(str){
     const reg = els.region.value;
     const minCred = parseInt(els.minCred.value, 10);
     const y = r.year || 0;
+    const enc = (els.encounter && els.encounter.value) ? els.encounter.value : '';
 
     if(q){
       const hay = [r.case,r.location,r.region,r.summary,r.witness,r.evidence,r.status,r.weather].join(' ').toLowerCase();
@@ -612,6 +637,13 @@ function escapeHtml(str){
     if(reg && (r.region || '') !== reg) return false;
     if((r.cred || 0) < minCred) return false;
     if(y && (y < currentYearMin || y > currentYearMax)) return false;
+
+    if(enc){
+      const raw = String(r.encounter || '').trim().toLowerCase();
+      const isYes = ['yes','y','true','1'].includes(raw);
+      const rowEnc = raw ? (isYes ? 'yes' : 'no') : 'no';
+      if(rowEnc !== enc) return false;
+    }
 
     return true;
   }
@@ -759,7 +791,8 @@ function highlightListItem(id){
 
       weather_source: getField(r, ['Weather source','weather source','Weather Source','Weather data source','Weather Data Source']),
       sources: getField(r, ['Sources','sources']),
-      videos:  getField(r, ['Videos','videos','Video','video']),
+      videos: getField(r, ['Videos','videos','Video','video','Video links','video links']),
+      encounter: getField(r, ['Encounter','encounter']),
       year: safeYear(getField(r, ['Date_ISO','date_iso','Date','date'])),
       lat: Number(latRaw),
       lon: Number(lonRaw)
@@ -913,6 +946,7 @@ function highlightListItem(id){
     els.search.addEventListener(evt, () => render());
     els.region.addEventListener(evt, () => render());
     els.minCred.addEventListener(evt, () => render());
+    if(els.encounter) els.encounter.addEventListener(evt, () => render());
   });
 
   els.fitBtn.addEventListener('click', () => { fitToMarkers(); fixMapSizeSoon(); });
@@ -920,6 +954,7 @@ function highlightListItem(id){
     els.search.value = '';
     els.region.value = '';
     els.minCred.value = '3';
+    if(els.encounter) els.encounter.value = '';
     const slider = els.yearSlider.noUiSlider;
     if(slider){
       const r = slider.options.range;
