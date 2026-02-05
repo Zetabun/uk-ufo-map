@@ -711,17 +711,41 @@ function highlightListItem(id){
   function fitToMarkers(){
     const layers = cluster.getLayers();
     if(!layers.length) return;
-    const group = L.featureGroup(layers);
-    const b = group.getBounds();
-    const center = b.getCenter();
 
-    if(!isWithinBounds(center.lat, center.lng, UK_SOFT_BOUNDS)){
-      setStatus('warn', 'Data loaded, but marker coordinates look outside the UK. Check your lat/lon columns (or rely on Location geocoding).');
+    // If a few outliers are far outside the UK, they can blow up bounds and trigger a false warning.
+    // So we fit to UK-ish points first, and only warn if most markers look non-UK.
+    const within = [];
+    let outsideCount = 0;
+
+    for(const lyr of layers){
+      if(!lyr || !lyr.getLatLng) continue;
+      const ll = lyr.getLatLng();
+      if(isWithinBounds(ll.lat, ll.lng, UK_SOFT_BOUNDS)){
+        within.push(lyr);
+      } else {
+        outsideCount += 1;
+      }
+    }
+
+    const total = within.length + outsideCount;
+
+    // Nothing usable to fit
+    if(!within.length){
+      setStatus('warn', 'Loaded data, but none of the plotted coordinates look UK-based. Check your lat/lon columns (or rely on Location geocoding).');
       map.setView([54.5, -3.0], 6);
       return;
     }
+
+    // Warn only if a majority look outside the UK (swapped coords / wrong units / bad geocodes).
+    if(total && (outsideCount / total) > 0.5){
+      setStatus('warn', 'Data loaded, but many marker coordinates look outside the UK. Check your lat/lon columns (or rely on Location geocoding).');
+    }
+
+    const group = L.featureGroup(within);
+    const b = group.getBounds();
     map.fitBounds(b.pad(0.2));
   }
+
 
   function initYearSlider(minY, maxY){
     currentYearMin = minY;
