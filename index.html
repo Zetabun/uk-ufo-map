@@ -288,6 +288,24 @@ select:focus {
   box-shadow: 0 0 0 4px rgba(96,165,250,0.12);
 }
 
+
+/* --- iOS-style toggles --- */
+.toggle-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0}
+.toggle-row .label{font-size:12px;color:var(--muted);line-height:1.2}
+.switch{position:relative;display:inline-block;width:44px;height:26px;flex:0 0 auto}
+.switch input{opacity:0;width:0;height:0}
+.slider{
+  position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;
+  background:rgba(255,255,255,.12);transition:.2s;border-radius:999px;border:1px solid var(--border)
+}
+.slider:before{
+  position:absolute;content:"";height:22px;width:22px;left:2px;top:1px;
+  background:white;transition:.2s;border-radius:999px;box-shadow:0 8px 20px rgba(0,0,0,.35)
+}
+.switch input:checked + .slider{background:rgba(96,165,250,.45);border-color:rgba(96,165,250,.55)}
+.switch input:checked + .slider:before{transform:translateX(18px)}
+.layer-hint{font-size:12px;color:var(--muted);line-height:1.35;margin-top:6px}
+
 </style>
 </head>
 
@@ -383,6 +401,36 @@ select:focus {
       <div id="list"></div>
     </div>
 
+
+    <div class="card" id="layersCard">
+      <div style="font-weight:700;margin-bottom:6px">Map layers</div>
+
+      <div class="toggle-row">
+        <div>
+          <div style="font-weight:650;font-size:13px">Airports</div>
+          <div class="label">Show major UK airports</div>
+        </div>
+        <label class="switch" title="Toggle airports">
+          <input type="checkbox" id="toggleAirports">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <div>
+          <div style="font-weight:650;font-size:13px">Military bases</div>
+          <div class="label">Show RAF/Army/Navy bases</div>
+        </div>
+        <label class="switch" title="Toggle military bases">
+          <input type="checkbox" id="toggleBases">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="layer-hint">These markers are an optional reference layer and won’t affect your sightings filters.</div>
+    </div>
+
+
     <div class="card">
       <div style="font-weight:700;margin-bottom:6px">Make it more interesting (ideas)</div>
       <div class="hint">
@@ -433,6 +481,82 @@ select:focus {
 
   const cluster = L.markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 50 });
   map.addLayer(cluster);
+
+  // Optional reference layers
+  const airportsLayer = L.layerGroup();
+  const basesLayer = L.layerGroup();
+
+  // Minimal curated sets (major airports + key bases). You can add/remove items anytime.
+  const AIRPORTS = [
+    { name: "London Heathrow (LHR)", lat: 51.4700, lon: -0.4543 },
+    { name: "London Gatwick (LGW)", lat: 51.1537, lon: -0.1821 },
+    { name: "London Stansted (STN)", lat: 51.8850, lon: 0.2350 },
+    { name: "London Luton (LTN)", lat: 51.8747, lon: -0.3683 },
+    { name: "London City (LCY)", lat: 51.5053, lon: 0.0553 },
+    { name: "Manchester (MAN)", lat: 53.3537, lon: -2.2750 },
+    { name: "Birmingham (BHX)", lat: 52.4539, lon: -1.7480 },
+    { name: "Bristol (BRS)", lat: 51.3827, lon: -2.7191 },
+    { name: "Liverpool John Lennon (LPL)", lat: 53.3336, lon: -2.8497 },
+    { name: "Newcastle (NCL)", lat: 55.0375, lon: -1.6917 },
+    { name: "Leeds Bradford (LBA)", lat: 53.8659, lon: -1.6606 },
+    { name: "Edinburgh (EDI)", lat: 55.9500, lon: -3.3725 },
+    { name: "Glasgow (GLA)", lat: 55.8719, lon: -4.4331 },
+    { name: "Aberdeen (ABZ)", lat: 57.2019, lon: -2.1978 },
+    { name: "Belfast International (BFS)", lat: 54.6575, lon: -6.2158 },
+    { name: "Cardiff (CWL)", lat: 51.3967, lon: -3.3433 }
+  ];
+
+  const BASES = [
+    { name: "RAF Brize Norton", lat: 51.7500, lon: -1.5830 },
+    { name: "RAF Fairford", lat: 51.6820, lon: -1.7900 },
+    { name: "RAF Lakenheath", lat: 52.4090, lon: 0.5610 },
+    { name: "RAF Mildenhall", lat: 52.3610, lon: 0.4860 },
+    { name: "RAF Coningsby", lat: 53.0930, lon: -0.1660 },
+    { name: "RAF Marham", lat: 52.6500, lon: 0.5500 },
+    { name: "RAF Lossiemouth", lat: 57.7050, lon: -3.3390 },
+    { name: "RAF Leeming", lat: 54.2950, lon: -1.5330 },
+    { name: "RAF Valley (Anglesey)", lat: 53.2520, lon: -4.5350 },
+    { name: "RAF Shawbury", lat: 52.7980, lon: -2.6680 },
+    { name: "RAF Waddington", lat: 53.1670, lon: -0.5240 },
+    { name: "Army: Salisbury Plain Training Area", lat: 51.2000, lon: -1.8000 },
+    { name: "HMNB Portsmouth", lat: 50.8010, lon: -1.1100 },
+    { name: "HMNB Clyde (Faslane)", lat: 56.0520, lon: -4.8250 },
+    { name: "Cawdor Barracks (Brawdy, Pembrokeshire)", lat: 51.8770, lon: -5.1230 },
+    { name: "MOD St Athan", lat: 51.4040, lon: -3.4350 }
+  ];
+
+  function makePoiIcon(emoji){
+    return L.divIcon({
+      className: '',
+      html: `<div style="width:26px;height:26px;border-radius:999px;background:rgba(17,24,39,.85);border:1px solid rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;box-shadow:0 10px 24px rgba(0,0,0,.35)">${emoji}</div>`,
+      iconSize: [26, 26],
+      iconAnchor: [13, 13]
+    });
+  }
+
+  const airportIcon = makePoiIcon("✈️");
+  const baseIcon = makePoiIcon("🛡️");
+
+  function buildPoiLayers(){
+    airportsLayer.clearLayers();
+    basesLayer.clearLayers();
+
+    const esc = (str) => String(str ?? '').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+
+    AIRPORTS.forEach(a => {
+      L.marker([a.lat, a.lon], { icon: airportIcon, title: a.name })
+        .bindPopup(`<b>${esc(a.name)}</b><div style="margin-top:6px;color:#6b7280;font-size:12px">Airport</div>`)
+        .addTo(airportsLayer);
+    });
+
+    BASES.forEach(b => {
+      L.marker([b.lat, b.lon], { icon: baseIcon, title: b.name })
+        .bindPopup(`<b>${esc(b.name)}</b><div style="margin-top:6px;color:#6b7280;font-size:12px">Military base</div>`)
+        .addTo(basesLayer);
+    });
+  }
+
+  buildPoiLayers();
 
   // Fix occasional "map misalignment" (Leaflet needs a resize invalidate after layout settles)
   function fixMapSizeSoon(){
@@ -984,6 +1108,29 @@ function highlightListItem(id){
     render();
     fitToMarkers();
   });
+
+
+  // Layer toggles (airports / bases)
+  function syncLayerToggles(){
+    if(els.toggleAirports){
+      if(els.toggleAirports.checked){
+        airportsLayer.addTo(map);
+      } else {
+        map.removeLayer(airportsLayer);
+      }
+    }
+    if(els.toggleBases){
+      if(els.toggleBases.checked){
+        basesLayer.addTo(map);
+      } else {
+        map.removeLayer(basesLayer);
+      }
+    }
+  }
+
+  if(els.toggleAirports) els.toggleAirports.addEventListener('change', syncLayerToggles);
+  if(els.toggleBases) els.toggleBases.addEventListener('change', syncLayerToggles);
+
 
   loadFromGoogleSheets().catch(err => {
     console.error(err);
