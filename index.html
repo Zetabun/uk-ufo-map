@@ -456,6 +456,8 @@ select:focus {
 
 <script>
 (function(){
+  function hasNoUiSlider(el){ return !!(el && hasNoUiSlider(el) ? el.noUiSlider : null)); }
+
   window.__ufoError = (msg) => {
     try{
       const b = document.getElementById('errorBanner');
@@ -1248,20 +1250,20 @@ function highlightListItem(id){
     currentYearMin = minY;
     currentYearMax = maxY;
 
-    if(els.yearSlider.noUiSlider){
-      els.yearSlider.noUiSlider.destroy();
+    if(els.hasNoUiSlider(yearSlider) ? yearSlider.noUiSlider : null)){
+      els.hasNoUiSlider(yearSlider) ? yearSlider.noUiSlider : null).destroy();
     }
-    noUiSlider.create(els.yearSlider, {
+    if((els.yearSlider) && window.noUiSlider){ noUiSlider.create(els.yearSlider, {
       start: [minY, maxY],
       connect: true,
       step: 1,
       range: { min: minY, max: maxY },
       format: { to: v => Math.round(v), from: v => parseInt(v,10) }
-    });
+    }); }
     els.yearMin.textContent = minY;
     els.yearMax.textContent = maxY;
 
-    els.yearSlider.noUiSlider.on('update', (values) => {
+    els.hasNoUiSlider(yearSlider) ? if(hasNoUiSlider(yearSlider)) yearSlider.noUiSlider.on('update', (values) => {
       currentYearMin = parseInt(values[0],10);
       currentYearMax = parseInt(values[1],10);
       els.yearMin.textContent = currentYearMin;
@@ -1475,7 +1477,7 @@ function highlightListItem(id){
     if(els.region) els.region.value = '';
     if(els.minCred) els.minCred.value = '3';
     if(els.encounter) els.encounter.value = '';
-    const slider = els.yearSlider.noUiSlider;
+    const slider = els.hasNoUiSlider(yearSlider) ? yearSlider.noUiSlider : null);
     if(slider){
       const r = slider.options.range;
       slider.set([r.min, r.max]);
