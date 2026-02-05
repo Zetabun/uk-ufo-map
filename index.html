@@ -61,8 +61,8 @@
     }
     #map{height:100%;width:100%}
     .card{background:rgba(17,24,39,.7);border:1px solid var(--border);border-radius:14px;padding:12px;margin-bottom:12px}
-    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-    .row > *{flex:1;min-width:120px}
+    .row{display:flex;gap:10px;align-items:center}
+    .row > *{flex:1}
     label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
     input, select{
       width:100%;padding:9px 10px;border-radius:12px;border:1px solid var(--border);
@@ -95,27 +95,42 @@
     .hint{font-size:12px;color:var(--muted);line-height:1.35}
     .smallbtn{font-size:11px;padding:6px 8px;border-radius:10px}
 	
-	/* Make Leaflet popups readable (force light-theme text) */
+	/* Leaflet popups: match the neon HUD theme */
 .leaflet-popup-content-wrapper,
-.leaflet-popup-tip {
-  background: #ffffff !important;
-  color: #111827 !important;
+.leaflet-popup-tip{
+  background: rgba(7, 12, 24, 0.92) !important;
+  color: var(--text) !important;
+  border: 1px solid rgba(96,165,250,0.45) !important;
+  border-radius: 18px !important;
+  box-shadow:
+    0 20px 60px rgba(0,0,0,0.55),
+    0 0 0 1px rgba(96,165,250,0.16),
+    0 0 34px rgba(96,165,250,0.18) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
-.leaflet-popup-content{ color:#111827 !important; }
-.leaflet-popup-content *{ color:#111827 !important; }.leaflet-popup-content a {
-  color: #1d4ed8 !important;
-  text-decoration: underline;
+/* Ensure popup text inherits our dark theme */
+.leaflet-popup-content{
+  color: var(--text) !important;
+}
+.leaflet-popup-content *{
+  color: inherit !important;
+}
+.leaflet-popup-content a{
+  color: #7dd3fc !important;
+  text-decoration: none !important;
   word-break: break-word;
 }
-
-.leaflet-popup-content b,
-.leaflet-popup-content strong {
-  color: #111827 !important;
+.leaflet-popup-content a:hover{
+  text-decoration: underline !important;
 }
 
-.leaflet-popup-close-button {
-  color: #111827 !important;
+.leaflet-popup-close-button{
+  color: rgba(229,231,235,0.9) !important;
+}
+.leaflet-popup-close-button:hover{
+  color: #ffffff !important;
 }
 
 html, body {
@@ -149,52 +164,20 @@ html, body {
 
 #yearSlider .noUi-handle {
   width: 18px;              /* handle size */
-  height: 18px;
-  right: -9px;              /* keeps it centered */
-  top: -5px;                /* vertical align to track */
-  border-radius: 999px;
-  border: 2px solid rgba(255,255,255,0.35);
-  box-shadow: 0 6px 18px rgba(0,0,0,0.25);
-}
-
-#yearSlider .noUi-handle:before,
-#yearSlider .noUi-handle:after {
-  display: none;            /* removes the two little bars */
-}
-
-#yearSlider .noUi-touch-area {
-  border-radius: 999px;
-}
-	
-	
-/* --- Leaflet popup: modern card styling --- */
-.leaflet-popup-content-wrapper{
-  border-radius: 18px !important;
-  padding: 0 !important;
-  box-shadow: 0 18px 50px rgba(0,0,0,0.22) !important;
-  border: 1px solid rgba(0,0,0,0.08) !important;
-}
-
-.leaflet-popup-tip{
-  box-shadow: 0 12px 30px rgba(0,0,0,0.18) !important;
-}
-
+  height: /* --- Leaflet popup layout (neon card) --- */
 .leaflet-popup-content{
   margin: 0 !important;
-  width: 360px !important;       /* consistent size */
+  width: 360px !important;
   max-width: 360px !important;
   font-family: inherit;
-  color: #111827;
 }
 
-/* Scroll inside popup instead of giant bubbles */
 .leaflet-popup-content .popup-inner{
   padding: 16px 16px 14px 16px;
   max-height: 70vh;
   overflow: auto;
 }
 
-/* Headings + spacing */
 .leaflet-popup-content h3{
   margin: 0 0 6px 0;
   font-size: 18px;
@@ -203,28 +186,36 @@ html, body {
 }
 
 .leaflet-popup-content .popup-date{
-  color: #6b7280;
+  color: rgba(229,231,235,0.72);
   font-size: 13px;
   margin: 0 0 12px 0;
 }
 
-/* Section labels */
-.leaflet-popup-content .k{
-  font-weight: 700;
-}
+.leaflet-popup-content .k{ font-weight: 800; }
 
-/* Subtle divider */
 .leaflet-popup-content .divider{
   height: 1px;
-  background: rgba(0,0,0,0.08);
+  background: rgba(255,255,255,0.12);
   margin: 12px 0;
 }
 
-/* Nicer source links */
-.leaflet-popup-content a{
-  color: #1d4ed8;
-  text-decoration: none;
+.leaflet-popup-content .tags{
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 8px 0 10px;
 }
+.leaflet-popup-content .tag{
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  font-size: 12px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(229,231,235,0.88);
+}
+
 .leaflet-popup-content a:hover{
   text-decoration: underline;
 }
@@ -287,159 +278,6 @@ select:focus {
   border-color: rgba(96,165,250,0.7);
   box-shadow: 0 0 0 4px rgba(96,165,250,0.12);
 }
-
-
-  /* Lighten the dark basemap slightly for a more stylish, readable 'dark mode' */
-  #map .leaflet-tile { filter: brightness(1.25) contrast(1.05) saturate(1.1); }
-  #map .leaflet-tile-pane { background: #0b1020; }
-
-/* --- Marker + cluster styling (neon / modern) --- */
-#map .ufo-dot{
-  width:16px;height:16px;
-  border-radius:999px;
-  position:relative;
-  transform: translate3d(0,0,0);
-  box-shadow: 0 12px 28px rgba(0,0,0,.55);
-}
-#map .ufo-dot .ufo-core{
-  position:absolute; inset:0;
-  border-radius:999px;
-  background: radial-gradient(circle at 35% 30%, rgba(255,255,255,.55), rgba(255,255,255,0) 42%),
-              radial-gradient(circle at 50% 60%, rgba(0,0,0,.25), rgba(0,0,0,0) 60%);
-  border: 2px solid rgba(255,255,255,.18);
-}
-#map .ufo-dot::before{
-  content:"";
-  position:absolute; inset:-10px;
-  border-radius:999px;
-  background: radial-gradient(circle, rgba(0,229,255,.25), rgba(0,229,255,0) 62%);
-  filter: blur(0.2px);
-  opacity:.9;
-  pointer-events:none;
-}
-#map .ufo-dot::after{
-  content:"";
-  position:absolute; inset:-5px;
-  border-radius:999px;
-  border: 2px solid rgba(0,229,255,.35);
-  opacity:.65;
-  pointer-events:none;
-}
-
-/* palette via class (fallback), actual base colour is inline style */
-#map .ufo-dot.ufo-c-cyan::after{ border-color: rgba(0,229,255,.38); }
-#map .ufo-dot.ufo-c-violet::after{ border-color: rgba(168,85,247,.42); }
-#map .ufo-dot.ufo-c-amber::after{ border-color: rgba(245,158,11,.42); }
-
-#map .ufo-dot:hover{ transform: scale(1.08); }
-#map .ufo-dot:hover::before{ opacity: 1; }
-
-/* Active marker gets a cleaner ring + slightly bigger glow */
-#map .ufo-dot.is-active::after{
-  inset:-8px;
-  border-width:2px;
-  opacity:.9;
-}
-#map .ufo-dot.is-active::before{
-  inset:-14px;
-  opacity:1;
-}
-
-/* Encounter = yes gets a pulse ring (like a radar ping) */
-#map .ufo-dot.ufo-enc-yes::after{
-  animation: ufoPing 1.9s ease-out infinite;
-}
-@keyframes ufoPing{
-  0%{ transform: scale(.82); opacity:.9; }
-  70%{ transform: scale(1.55); opacity:0; }
-  100%{ transform: scale(1.55); opacity:0; }
-}
-
-/* Cluster badge: neon glass */
-.ufo-cluster-badge{
-  display:grid; place-items:center;
-  width:100%; height:100%;
-  border-radius:999px;
-  font-weight:900;
-  letter-spacing:.2px;
-  color:#dffbff;
-  background: radial-gradient(circle at 30% 25%, rgba(255,255,255,.18), rgba(255,255,255,0) 50%),
-              rgba(12,20,40,.70);
-  border: 1px solid rgba(0,229,255,.35);
-  box-shadow:
-    0 18px 40px rgba(0,0,0,.55),
-    0 0 0 6px rgba(0,229,255,.08);
-  backdrop-filter: blur(8px);
-}
-.ufo-cluster--small{ font-size:14px; }
-.ufo-cluster--med{ font-size:16px; }
-.ufo-cluster--large{ font-size:18px; }
-
-/* Tooltip to match neon card */
-.leaflet-tooltip.ufo-tip{
-  background: rgba(10,16,30,.85);
-  border: 1px solid rgba(0,229,255,.38);
-  color:#e6f6ff;
-  border-radius:12px;
-  padding:10px 12px;
-  box-shadow: 0 18px 50px rgba(0,0,0,.65), 0 0 0 6px rgba(0,229,255,.08);
-  backdrop-filter: blur(10px);
-}
-.leaflet-tooltip.ufo-tip:before{ display:none; } /* hide default arrow */
-
-/* Optional: make the popup align stylistically with tooltip */
-#map .leaflet-popup-content-wrapper{
-  background: rgba(10,16,30,.92);
-  color:#e6f6ff;
-  border: 1px solid rgba(0,229,255,.28);
-  box-shadow: 0 22px 60px rgba(0,0,0,.70);
-  backdrop-filter: blur(10px);
-}
-#map .leaflet-popup-tip{ background: rgba(10,16,30,.92); border: 1px solid rgba(0,229,255,.18); }
-
-  70%{ transform: scale(1.25); opacity:0; }
-  100%{ transform: scale(1.25); opacity:0; }
-}
-
-/* Cluster: modern stacked badge (less “blob”) */
-.ufo-cluster-badge{
-  width:44px;height:44px;
-  border-radius:999px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  position:relative;
-  font-weight:900;
-  font-size:13px;
-  color: rgba(8,12,20,.92);
-  letter-spacing:.2px;
-  box-shadow: 0 12px 26px rgba(0,0,0,.45);
-  border: 1px solid rgba(255,255,255,.22);
-  backdrop-filter: blur(8px);
-  background:
-    radial-gradient(circle at 30% 25%, rgba(255,255,255,.55), rgba(255,255,255,0) 45%),
-    linear-gradient(180deg, rgba(255,255,255,.18), rgba(255,255,255,.04));
-}
-.ufo-cluster-badge::before{
-  content:"";
-  position:absolute;inset:-7px;
-  border-radius:999px;
-  background: radial-gradient(circle, rgba(255,255,255,.22), rgba(255,255,255,0) 60%);
-  opacity:.65;
-}
-.ufo-cluster--small{ width:42px;height:42px; font-size:13px; }
-.ufo-cluster--med  { width:54px;height:54px; font-size:14px; }
-.ufo-cluster--large{ width:66px;height:66px; font-size:15px; }
-
-.ufo-cluster--small{ background-color: rgba(34,197,94,.90); }
-.ufo-cluster--med  { background-color: rgba(96,165,250,.92); }
-.ufo-cluster--large{ background-color: rgba(245,158,11,.92); }
-
-/* Remove default MarkerCluster fills so ours wins */
-.marker-cluster, .marker-cluster div{ background: transparent !important; }
-
-/* Slightly soften the basemap without going full-dark */
-#map .leaflet-tile{ filter: brightness(1.20) contrast(1.06) saturate(1.08); }
 
 </style>
 </head>
@@ -509,17 +347,9 @@ select:focus {
             <option value="5">5</option>
           </select>
         </div>
-        <div>
-          <label for="encounter">Encounter</label>
-          <select id="encounter">
-            <option value="">All</option>
-            <option value="yes">Yes</option>
-            <option value="no">No</option>
-          </select>
-        </div>
       </div>
 
-<div style="height:12px"></div>
+      <div style="height:12px"></div>
       <label>Year range</label>
       <div class="slider-wrap"><div id="yearSlider"></div></div>
       <div class="slider-meta"><span id="yearMin">—</span><span id="yearMax">—</span></div>
@@ -572,32 +402,18 @@ select:focus {
     resetBtn: document.getElementById('resetBtn'),
     yearSlider: document.getElementById('yearSlider'),
     yearMin: document.getElementById('yearMin'),
-    yearMax: document.getElementById('yearMax'),
-    encounter: document.getElementById('encounter')
+    yearMax: document.getElementById('yearMax')
   };
 
   // Map
   const map = L.map('map', { zoomControl: true }).setView([54.5, -3.0], 6);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
     maxZoom: 19,
     subdomains: 'abcd',
     attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
   }).addTo(map);
 
-  const cluster = L.markerClusterGroup({
-    showCoverageOnHover: false,
-    maxClusterRadius: 50,
-    spiderfyOnMaxZoom: true,
-    iconCreateFunction: (c) => {
-      const count = c.getChildCount();
-      const size = count < 10 ? 'small' : (count < 50 ? 'med' : 'large');
-      return L.divIcon({
-        html: `<div class="ufo-cluster-badge ufo-cluster--${size}">${count}</div>`,
-        className: '',
-        iconSize: L.point(size === 'small' ? 44 : (size === 'med' ? 56 : 68), size === 'small' ? 44 : (size === 'med' ? 56 : 68))
-      });
-    }
-  });
+  const cluster = L.markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 50 });
   map.addLayer(cluster);
 
   // Fix occasional "map misalignment" (Leaflet needs a resize invalidate after layout settles)
@@ -656,12 +472,6 @@ select:focus {
     return String(src).split(/[\n;]+/).map(s=>s.trim()).filter(Boolean);
   }
 
-  function parseVideos(v){
-    if(!v) return [];
-    return String(v).split(/[\n;]+/).map(s=>s.trim()).filter(Boolean);
-  }
-
-
   
   // Case-insensitive, trimmed header lookup (handles 'Weather ', 'weather summary', etc.)
   function getField(row, names){
@@ -685,24 +495,13 @@ function escapeHtml(str){
     }[s]));
   }
 
-    function makeMiniTipHTML(r){
-    // Compact "neon card" like your reference example
-    const id = escapeHtml(String(r.id ?? ''));
-    const shape = escapeHtml(String(r.shape || r.type || r.category || '').trim() || '—');
-    const cred = escapeHtml(String(r.cred || '—'));
-    return `
-      <div style="font-weight:900; letter-spacing:.3px; color:#00e5ff; margin-bottom:6px;">INCIDENT #${id}</div>
-      <div style="font-weight:800; margin-bottom:2px;">${escapeHtml(r.case || '—')}</div>
-      <div style="opacity:.85; font-weight:700;">Credibility: ${cred}</div>
-    `;
-  }
-
-function makePopupHTML(r){
+  function makePopupHTML(r){
     const sources = parseSources(r.sources);
-    const videos = parseVideos(r.videos);
 
-    const sourcesBlock = sources.length
-      ? `<div style="font-weight:800;margin-bottom:6px">Sources</div>
+    // Build sources list with short labels (Source 1, Source 2...) but keep real URLs
+    const srcHtml = sources.length
+      ? `<div class="divider"></div>
+         <div style="font-weight:800;margin-bottom:6px">Sources</div>
          ${sources.map((u,i) => {
             const label = `Source ${i+1}`;
             return `<div style="margin:4px 0">
@@ -711,49 +510,18 @@ function makePopupHTML(r){
           }).join('')}`
       : '';
 
-    const videosBlock = videos.length
-      ? `<div style="font-weight:800;margin-bottom:6px">Videos</div>
-         ${videos.map((u,i) => {
-            const label = `Video ${i+1}`;
-            return `<div style="margin:4px 0">
-                      <a href="${escapeHtml(u)}" target="_blank" rel="noopener">${label}</a>
-                    </div>`;
-          }).join('')}`
-      : '';
-
-    let linksHtml = '';
-    if(sources.length || videos.length){
-      if(sources.length && videos.length){
-        linksHtml = `<div class="divider"></div>
-          <div style="display:flex;gap:14px;align-items:flex-start">
-            <div style="flex:1;min-width:0">${sourcesBlock}</div>
-            <div style="flex:1;min-width:0">${videosBlock}</div>
-          </div>`;
-      }else if(sources.length){
-        linksHtml = `<div class="divider"></div>${sourcesBlock}`;
-      }else{
-        linksHtml = `<div class="divider"></div>${videosBlock}`;
-      }
-    }
-
     const tags = `
       <div class="tags">
         <span class="tag">${escapeHtml(r.region || '—')}</span>
         <span class="tag">Credibility: ${escapeHtml(String(r.cred || '—'))}</span>
         ${r.status ? `<span class="tag">${escapeHtml(r.status)}</span>` : ''}
-        ${(() => {
-          const raw = String(r.encounter || '').trim().toLowerCase();
-          const isYes = ['yes','y','true','1'].includes(raw);
-          const enc = raw ? (isYes ? 'Yes' : 'No') : 'No';
-          return `<span class="tag">Encounter: ${enc}</span>`;
-        })()}
       </div>`;
 
     const weatherBlock = (r.weather && String(r.weather).trim())
-      ? `<div style="margin:10px 0 12px;padding:10px 12px;border:1px solid rgba(0,0,0,.08);border-radius:14px;background:#f9fafb">
+      ? `<div style="margin:10px 0 12px;padding:10px 12px;border:1px solid rgba(255,255,255,0.12);border-radius:14px;background:rgba(255,255,255,0.04)">
            <div style="font-weight:800;margin-bottom:6px">Weather</div>
            <div style="font-size:13px;line-height:1.35">${escapeHtml(r.weather)}</div>
-           ${r.weather_source ? `<div style="font-size:11px;color:#6b7280;margin-top:6px">Source: ${escapeHtml(r.weather_source)}</div>` : ''}
+           ${r.weather_source ? `<div style="font-size:11px;color:rgba(229,231,235,0.68);margin-top:6px">Source: ${escapeHtml(r.weather_source)}</div>` : ''}
          </div>`
       : '';
 
@@ -769,7 +537,7 @@ function makePopupHTML(r){
           <div style="margin-top:8px"><span class="k">Evidence:</span> ${escapeHtml(r.evidence || '—')}</div>
           ${r.summary ? `<div style="margin-top:10px">${escapeHtml(r.summary)}</div>` : ''}
           ${r.why ? `<div style="margin-top:10px;color:#6b7280">${escapeHtml(r.why)}</div>` : ''}
-          ${linksHtml}
+          ${srcHtml}
         </div>
       </div>
     `;
@@ -782,28 +550,16 @@ function makePopupHTML(r){
     return '#f59e0b';
   }
 
-  function makeMarker(lat, lon, cred, encounter){
-    const raw = String(encounter || '').trim().toLowerCase();
-    const isYes = ['yes','y','true','1'].includes(raw);
-    const enc = raw ? (isYes ? 'yes' : 'no') : 'no';
-
-    // Slightly more "neon UI" palette mapping
-    const c = Number(cred || 0);
-    const color = (c >= 4) ? '#00e5ff' : (c >= 3 ? '#a855f7' : '#f59e0b');
-    const colorClass = (c >= 4) ? 'ufo-c-cyan' : (c >= 3 ? 'ufo-c-violet' : 'ufo-c-amber');
-
-    const icon = L.divIcon({
-      className: '',
-      iconSize: [16, 16],
-      iconAnchor: [8, 8],
-      html: `<div class="ufo-dot ${colorClass} ufo-enc-${enc}" style="background:${color};">
-               <div class="ufo-core"></div>
-             </div>`
+  function makeCircleMarker(lat, lon, cred){
+    const color = markerColorByCred(cred);
+    return L.circleMarker([lat, lon], {
+      radius: 7,
+      weight: 2,
+      color: color,
+      fillColor: color,
+      fillOpacity: 0.25
     });
-
-    return L.marker([lat, lon], { icon, keyboard: false, riseOnHover: true });
   }
-
 
   function clearMarkers(){
     cluster.clearLayers();
@@ -815,7 +571,6 @@ function makePopupHTML(r){
     const reg = els.region.value;
     const minCred = parseInt(els.minCred.value, 10);
     const y = r.year || 0;
-    const enc = (els.encounter && els.encounter.value) ? els.encounter.value : '';
 
     if(q){
       const hay = [r.case,r.location,r.region,r.summary,r.witness,r.evidence,r.status,r.weather].join(' ').toLowerCase();
@@ -824,13 +579,6 @@ function makePopupHTML(r){
     if(reg && (r.region || '') !== reg) return false;
     if((r.cred || 0) < minCred) return false;
     if(y && (y < currentYearMin || y > currentYearMax)) return false;
-
-    if(enc){
-      const raw = String(r.encounter || '').trim().toLowerCase();
-      const isYes = ['yes','y','true','1'].includes(raw);
-      const rowEnc = raw ? (isYes ? 'yes' : 'no') : 'no';
-      if(rowEnc !== enc) return false;
-    }
 
     return true;
   }
@@ -844,12 +592,7 @@ function makePopupHTML(r){
 
     for(const r of shown){
       if(!Number.isFinite(r.lat) || !Number.isFinite(r.lon)) continue;
-      const m = makeMarker(r.lat, r.lon, r.cred, r.encounter);
-      m.bindTooltip(makeMiniTipHTML(r), { className: 'ufo-tip', direction: 'right', offset: [14, 0], opacity: 1 });
-      m.on('mouseover', () => { try { m.openTooltip(); } catch(e){} });
-      m.on('mouseout', () => { try { m.closeTooltip(); } catch(e){} });
-      m.on('popupopen', () => { const el = m.getElement && m.getElement(); if(el) el.querySelector('.ufo-dot')?.classList.add('is-active'); });
-      m.on('popupclose', () => { const el = m.getElement && m.getElement(); if(el) el.querySelector('.ufo-dot')?.classList.remove('is-active'); });
+      const m = makeCircleMarker(r.lat, r.lon, r.cred);
       m.bindPopup(makePopupHTML(r), { maxWidth: 420 });
       m.on('click', () => highlightListItem(r.id));
       cluster.addLayer(m);
@@ -983,8 +726,6 @@ function highlightListItem(id){
 
       weather_source: getField(r, ['Weather source','weather source','Weather Source','Weather data source','Weather Data Source']),
       sources: getField(r, ['Sources','sources']),
-      videos: getField(r, ['Videos','videos','Video','video','Video links','video links']),
-      encounter: getField(r, ['Encounter','encounter']),
       year: safeYear(getField(r, ['Date_ISO','date_iso','Date','date'])),
       lat: Number(latRaw),
       lon: Number(lonRaw)
@@ -1138,7 +879,6 @@ function highlightListItem(id){
     els.search.addEventListener(evt, () => render());
     els.region.addEventListener(evt, () => render());
     els.minCred.addEventListener(evt, () => render());
-    if(els.encounter) els.encounter.addEventListener(evt, () => render());
   });
 
   els.fitBtn.addEventListener('click', () => { fitToMarkers(); fixMapSizeSoon(); });
@@ -1146,7 +886,6 @@ function highlightListItem(id){
     els.search.value = '';
     els.region.value = '';
     els.minCred.value = '3';
-    if(els.encounter) els.encounter.value = '';
     const slider = els.yearSlider.noUiSlider;
     if(slider){
       const r = slider.options.range;
