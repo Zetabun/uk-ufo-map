@@ -91,7 +91,69 @@
     a:hover{text-decoration:underline}
     .hint{font-size:12px;color:var(--muted);line-height:1.35}
     .smallbtn{font-size:11px;padding:6px 8px;border-radius:10px}
-  </style>
+  
+/* --- Leaflet popup: modern card styling --- */
+.leaflet-popup-content-wrapper{
+  border-radius: 18px !important;
+  padding: 0 !important;
+  box-shadow: 0 18px 50px rgba(0,0,0,0.22) !important;
+  border: 1px solid rgba(0,0,0,0.08) !important;
+}
+.leaflet-popup-tip{
+  box-shadow: 0 12px 30px rgba(0,0,0,0.18) !important;
+}
+.leaflet-popup-content{
+  margin: 0 !important;
+  width: 360px !important;
+  max-width: 360px !important;
+  font-family: inherit;
+  color: #111827;
+}
+.leaflet-popup-content .popup-inner{
+  padding: 16px 16px 14px 16px;
+  max-height: 70vh;
+  overflow: auto;
+}
+.leaflet-popup-content h3{
+  margin: 0 0 6px 0;
+  font-size: 18px;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+.leaflet-popup-content .popup-date{
+  color: #6b7280;
+  font-size: 13px;
+  margin: 0 0 10px 0;
+}
+.leaflet-popup-content .k{ font-weight: 700; }
+.leaflet-popup-content .divider{
+  height: 1px;
+  background: rgba(0,0,0,0.08);
+  margin: 12px 0;
+}
+.leaflet-popup-content a{
+  color: #1d4ed8;
+  text-decoration: none;
+}
+.leaflet-popup-content a:hover{ text-decoration: underline; }
+.leaflet-popup-content .tags{
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 8px 0 10px;
+}
+.leaflet-popup-content .tag{
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  font-size: 12px;
+  border-radius: 999px;
+  background: rgba(0,0,0,0.05);
+  border: 1px solid rgba(0,0,0,0.06);
+  color: #111827;
+}
+
+</style>
 </head>
 
 <body>
@@ -267,29 +329,40 @@
 
   function makePopupHTML(r){
     const sources = parseSources(r.sources);
+
+    const tags = `
+      <div class="tags">
+        <span class="tag">${escapeHtml(r.region || '—')}</span>
+        <span class="tag">Credibility: ${escapeHtml(String(r.cred || '—'))}</span>
+        ${r.status ? `<span class="tag">${escapeHtml(r.status)}</span>` : ''}
+      </div>`;
+
+    const weatherBlock = (r.weather && String(r.weather).trim())
+      ? `<div style="margin:10px 0 12px;padding:10px 12px;border:1px solid rgba(0,0,0,.08);border-radius:14px;background:#f9fafb">
+           <div style="font-weight:800;margin-bottom:6px">Weather</div>
+           <div style="font-size:13px;line-height:1.35">${escapeHtml(r.weather)}</div>
+           ${r.weather_source ? `<div style="font-size:11px;color:#6b7280;margin-top:6px">Source: ${escapeHtml(r.weather_source)}</div>` : ''}
+         </div>`
+      : '';
+
     const srcHtml = sources.length
-      ? '<div style="margin-top:8px"><div style="font-weight:700;margin-bottom:4px">Sources</div>' +
-        sources.map((u,i)=>`<div style="margin:4px 0">
-            <a href="${escapeHtml(u)}" target="_blank" rel="noopener">Source ${i+1}</a>
-          </div>`).join('') +
-        '</div>'
+      ? `<div class="divider"></div>
+         <div style="font-weight:800;margin-bottom:6px">Sources</div>
+         ${sources.map((u,i) => `<div style="margin:4px 0"><a href="${escapeHtml(u)}" target="_blank" rel="noopener">Source ${i+1}</a></div>`).join('')}`
       : '';
 
     return `
-      <div style="min-width:260px;max-width:360px">
-        <div style="font-weight:800;font-size:14px;margin-bottom:4px">${escapeHtml(r.case)}</div>
-        <div style="color:#9ca3af;font-size:12px;margin-bottom:8px">${escapeHtml(r.date || '')}</div>
-        <div style="margin-bottom:8px">
-          <span class="pill">${escapeHtml(r.region || '—')}</span>
-          <span class="pill">Credibility: ${escapeHtml(String(r.cred || '—'))}</span>
-        </div>
-        <div style="font-size:12px;line-height:1.4;color:#e5e7eb">
-          <div><b>Location:</b> ${escapeHtml(r.location || '—')}</div>
-          <div style="margin-top:6px"><b>Witness:</b> ${escapeHtml(r.witness || '—')}</div>
-          <div style="margin-top:6px"><b>Evidence:</b> ${escapeHtml(r.evidence || '—')}</div>
-          <div style="margin-top:6px"><b>Status:</b> ${escapeHtml(r.status || '—')}</div>
-          <div style="margin-top:8px">${escapeHtml(r.summary || '')}</div>
-          <div style="margin-top:8px;color:#9ca3af">${escapeHtml(r.why || '')}</div>
+      <div class="popup-inner">
+        <h3>${escapeHtml(r.case)}</h3>
+        <p class="popup-date">${escapeHtml(r.date || '')}${r.time ? ` • ${escapeHtml(r.time)}` : ''}</p>
+        ${tags}
+        ${weatherBlock}
+        <div style="font-size:13px;line-height:1.45">
+          <div><span class="k">Location:</span> ${escapeHtml(r.location || '—')}</div>
+          <div style="margin-top:8px"><span class="k">Witness:</span> ${escapeHtml(r.witness || '—')}</div>
+          <div style="margin-top:8px"><span class="k">Evidence:</span> ${escapeHtml(r.evidence || '—')}</div>
+          ${r.summary ? `<div style="margin-top:10px">${escapeHtml(r.summary)}</div>` : ''}
+          ${r.why ? `<div style="margin-top:10px;color:#6b7280">${escapeHtml(r.why)}</div>` : ''}
           ${srcHtml}
         </div>
       </div>
