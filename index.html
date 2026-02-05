@@ -13,9 +13,6 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-
-  <!-- satellite.js (SGP4 propagation) -->
-  <script src="https://unpkg.com/satellite.js@5.0.1/dist/satellite.min.js"></script>
 <!-- PapaParse (CSV) -->
   <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
 
@@ -309,34 +306,6 @@ select:focus {
 .switch input:checked + .slider:before{transform:translateX(18px)}
 .layer-hint{font-size:12px;color:var(--muted);line-height:1.35;margin-top:6px}
 
-
-/* --- Astro overlay markers --- */
-.astro-pin{
-  width:28px;height:28px;border-radius:999px;
-  background:rgba(17,24,39,.90);
-  border:1px solid rgba(255,255,255,.18);
-  display:flex;align-items:center;justify-content:center;
-  box-shadow:0 10px 24px rgba(0,0,0,.35);
-}
-
-
-/* --- Debug banner (shows if JS errors happen) --- */
-#errorBanner{
-  display:none;
-  position:fixed;
-  left:12px; right:12px; bottom:12px;
-  z-index:9999;
-  padding:10px 12px;
-  border-radius:14px;
-  border:1px solid rgba(255,255,255,.14);
-  background:rgba(239,68,68,.18);
-  color:#fee2e2;
-  font-size:12px;
-  line-height:1.35;
-  backdrop-filter: blur(8px);
-}
-#errorBanner b{color:#fff}
-
 </style>
 </head>
 
@@ -384,57 +353,104 @@ select:focus {
 <div class="card" id="layersCard">
   <div style="font-weight:700;margin-bottom:6px">Map layers</div>
 
-  
-
-
-<div class="card" id="astroCard">
-  <div style="font-weight:700;margin-bottom:6px">Astro overlays</div>
-
   <div class="toggle-row">
-    <div>
-      <div style="font-weight:650;font-size:13px">Satellites</div>
-      <div class="label">Show track near selected case time (ISS + a few bright satellites)</div>
-    </div>
-    <label class="switch" title="Toggle satellite overlay">
-      <input type="checkbox" id="toggleSat">
-      <span class="slider"></span>
-    </label>
-  </div>
-
-  <div class="toggle-row">
-    <div>
-      <div style="font-weight:650;font-size:13px">Meteor showers</div>
-      <div class="label">Show if a meteor shower was active at the case time</div>
-    </div>
-    <label class="switch" title="Toggle meteor overlay">
-      <input type="checkbox" id="toggleMeteor">
-      <span class="slider"></span>
-    </label>
-  </div>
-
-  <div class="row" style="margin-top:10px">
-    <div class="select-wrap" style="flex:1;min-width:160px">
-      <label for="satChoice">Satellite set</label>
-      <select id="satChoice">
-        <option value="iss" selected>ISS (25544)</option>
-        <option value="iss_tiangong">ISS + Tiangong</option>
-        <option value="iss_tiangong_hst">ISS + Tiangong + Hubble</option>
-      </select>
-    </div>
-    <div style="flex:0 0 auto;min-width:120px;align-self:flex-end">
-      <button class="btn smallbtn" id="recalcAstroBtn" type="button">Recalculate</button>
-    </div>
-  </div>
-
-  <div class="layer-hint" id="astroHint">
-    Tip: click a case marker to calculate overlays for that case’s <b>Date</b>/<b>Time</b> (UK local time, DST-aware).
-  </div>
-  <div class="hint" id="astroStatus" style="margin-top:8px"></div>
-</div>
-
-<div class="toggle-row">
     <div>
       <div style="font-weight:650;font-size:13px">Airports</div>
+      <div class="label">Show major UK airports</div>
+    </div>
+    <label class="switch" title="Toggle airports">
+      <input type="checkbox" id="toggleAirports">
+      <span class="slider"></span>
+    </label>
+  </div>
+
+  <div class="toggle-row">
+    <div>
+      <div style="font-weight:650;font-size:13px">Military bases</div>
+      <div class="label">Show RAF/Army/Navy bases</div>
+    </div>
+    <label class="switch" title="Toggle military bases">
+      <input type="checkbox" id="toggleBases">
+      <span class="slider"></span>
+    </label>
+  </div>
+
+  <div class="layer-hint">These markers are an optional reference layer and won’t affect your sightings filters.</div>
+</div>
+
+
+
+      
+
+
+
+    <div class="card">
+      <div class="row">
+        <div>
+          <label for="search">Search</label>
+          <input id="search" placeholder="e.g., Rendlesham, Warwick, triangle…" />
+        </div>
+      </div>
+      <div style="height:12px"></div>
+      <div class="row">
+        <div>
+          <label for="region">Region</label>
+          <select id="region">
+            <option value="">All</option>
+          </select>
+        </div>
+        <div>
+          <label for="minCred">Min credibility</label>
+          <select id="minCred">
+            <option value="1">1+</option>
+            <option value="2">2+</option>
+            <option value="3" selected>3+</option>
+            <option value="4">4+</option>
+            <option value="5">5</option>
+          </select>
+        </div>
+        <div>
+          <label for="encounter">Encounter</label>
+          <select id="encounter">
+            <option value="">All</option>
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+          </select>
+        </div>
+      </div>
+
+<div style="height:12px"></div>
+      <label>Year range</label>
+      <div class="slider-wrap"><div id="yearSlider"></div></div>
+      <div class="slider-meta"><span id="yearMin">—</span><span id="yearMax">—</span></div>
+    </div>
+
+    <div class="card">
+      <div class="row" style="justify-content:space-between;align-items:baseline">
+        <div style="flex:1">
+          <div style="font-weight:700;margin-bottom:6px">Results</div>
+          <div class="hint" id="resultsHint">Click an item to zoom and open its popup.</div>
+        </div>
+      </div>
+      <div style="height:8px"></div>
+      <div id="list"></div>
+    </div>
+          <div class="label">Show major UK airports</div>
+        </div>
+        <label class="switch" title="Toggle airports">
+          <input type="checkbox" id="toggleAirports">
+          <span class="slider"></span>
+        </label>
+      </div>
+          <div class="label">Show RAF/Army/Navy bases</div>
+        </div>
+        <label class="switch" title="Toggle military bases">
+          <input type="checkbox" id="toggleBases">
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
 
     <div class="card">
       <div style="font-weight:700;margin-bottom:6px">Make it more interesting (ideas)</div>
@@ -452,23 +468,8 @@ select:focus {
   </main>
 </div>
 
-<div id="errorBanner"></div>
-
 <script>
 (function(){
-  function hasNoUiSlider(el){ return !!(el && hasNoUiSlider(el) ? el.noUiSlider : null)); }
-
-  window.__ufoError = (msg) => {
-    try{
-      const b = document.getElementById('errorBanner');
-      if(!b) return;
-      b.style.display='block';
-      b.innerHTML = `<b>Map error:</b> ${String(msg).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[s]))}`;
-    }catch(e){}
-  };
-  window.addEventListener('error', (e) => window.__ufoError(e.message || e.error || 'Unknown error'));
-  window.addEventListener('unhandledrejection', (e) => window.__ufoError(e.reason && e.reason.message ? e.reason.message : (e.reason || 'Promise rejected')));
-
   // ==== CONFIG ====
   // Your published Google Sheets CSV URL (Publish to the web → CSV):
   const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ7sia344gHoW613Mc1jQSYR4w_rMv2CcDtc-v1eJrbggnWrdu0FpgRIMMtwCOXULgmoU7UEUHNK-Ib/pub?output=csv';
@@ -491,23 +492,15 @@ select:focus {
     encounter: document.getElementById('encounter'),
     toggleAirports: document.getElementById('toggleAirports'),
     toggleBases: document.getElementById('toggleBases')
-,
-// Astro overlays
-toggleSat: document.getElementById('toggleSat'),
-toggleMeteor: document.getElementById('toggleMeteor'),
-satChoice: document.getElementById('satChoice'),
-recalcAstroBtn: document.getElementById('recalcAstroBtn'),
-astroStatus: document.getElementById('astroStatus')
   };
 
   // Map
   const map = L.map('map', { zoomControl: true }).setView([54.5, -3.0], 6);
-  const tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
     maxZoom: 19,
     subdomains: 'abcd',
     attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
   }).addTo(map);
-  tileLayer.on('tileerror', () => window.__ufoError('Map tiles failed to load. If you are offline, or a network blocks CARTO tiles, the map will appear blank/blue.'));
 
   const cluster = L.markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 50 });
   map.addLayer(cluster);
@@ -515,323 +508,6 @@ astroStatus: document.getElementById('astroStatus')
   // Optional reference layers
   const airportsLayer = L.layerGroup();
   const basesLayer = L.layerGroup();
-
-// Astro overlays (computed on demand for the selected case)
-const satLayer = L.layerGroup();
-const meteorLayer = L.layerGroup();
-
-const SAT_SETS = {
-  iss: [{ name: "ISS (ZARYA)", norad: 25544 }],
-  iss_tiangong: [{ name: "ISS (ZARYA)", norad: 25544 }, { name: "Tiangong", norad: 48274 }],
-  iss_tiangong_hst: [{ name: "ISS (ZARYA)", norad: 25544 }, { name: "Tiangong", norad: 48274 }, { name: "Hubble", norad: 20580 }],
-};
-
-function makeAstroIcon(emoji){
-  return L.divIcon({
-    className: '',
-    html: `<div class="astro-pin">${emoji}</div>`,
-    iconSize: [28, 28],
-    iconAnchor: [14, 14]
-  });
-}
-
-const satIcon = makeAstroIcon("🛰️");
-const meteorIcon = makeAstroIcon("☄️");
-
-// UK time (Europe/London) => UTC timestamp. Handles DST without external libs.
-function ukLocalToUtcMs(dateStr, timeStr){
-  if(!dateStr) return null;
-  const t = (String(timeStr||'').trim() || '12:00').slice(0,5);
-  const isoLocal = `${String(dateStr).trim()}T${t}:00`;
-  const assumed = new Date(isoLocal + 'Z');
-
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Europe/London',
-    year:'numeric',month:'2-digit',day:'2-digit',
-    hour:'2-digit',minute:'2-digit',second:'2-digit',
-    hour12:false
-  }).formatToParts(assumed).reduce((acc,p)=>{acc[p.type]=p.value; return acc;},{});
-
-  const desiredWall = new Date(`${dateStr}T${t}:00Z`);
-  const actualWall = new Date(`${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}Z`);
-  const deltaMs = desiredWall.getTime() - actualWall.getTime();
-  return assumed.getTime() + deltaMs;
-}
-
-function fmtUtcMs(ms){
-  const d = new Date(ms);
-  return d.toISOString().replace('T',' ').slice(0,19) + 'Z';
-}
-
-async function fetchNearestTle(norad, eventUtcMs){
-  const d = new Date(eventUtcMs);
-  const y = d.getUTCFullYear();
-  const mo = String(d.getUTCMonth()+1).padStart(2,'0');
-  const da = String(d.getUTCDate()).padStart(2,'0');
-
-  const start = `${y}${mo}${da}T0000`;
-  const endDate = new Date(Date.UTC(y, d.getUTCMonth(), d.getUTCDate()+1));
-  const y2 = endDate.getUTCFullYear();
-  const m2 = String(endDate.getUTCMonth()+1).padStart(2,'0');
-  const d2 = String(endDate.getUTCDate()).padStart(2,'0');
-  const end = `${y2}${m2}${d2}T0000`;
-
-  const url = `https://satdb.ethz.ch/api/satellitedata/?norad-id=${encodeURIComponent(norad)}&start-datetime=${start}&end-datetime=${end}&before=10&after=10&without-frequency-data=True`;
-
-  const res = await fetch(url, { headers: { 'Accept':'application/json' } });
-  if(!res.ok) throw new Error(`satdb HTTP ${res.status}`);
-  const js = await res.json();
-
-  const all = [];
-  for(const item of (js.results||[])){
-    if(item && item.norad_str) all.push(item.norad_str);
-  }
-  let next = js.next;
-  while(next){
-    const r2 = await fetch(next, { headers: { 'Accept':'application/json' } });
-    if(!r2.ok) break;
-    const j2 = await r2.json();
-    for(const item of (j2.results||[])){
-      if(item && item.norad_str) all.push(item.norad_str);
-    }
-    next = j2.next;
-  }
-  if(!all.length) return null;
-
-  function tleEpochToMs(line1){
-    const m = String(line1).match(/\s(\d{2})(\d{3}\.\d+)/);
-    if(!m) return null;
-    const yy = parseInt(m[1],10);
-    const year = (yy < 57) ? 2000+yy : 1900+yy;
-    const dayOfYear = parseFloat(m[2]);
-    const dayInt = Math.floor(dayOfYear);
-    const frac = dayOfYear - dayInt;
-    const startYear = Date.UTC(year,0,1,0,0,0);
-    return startYear + (dayInt-1)*86400000 + Math.round(frac*86400000);
-  }
-
-  let best = null;
-  let bestDiff = Infinity;
-  for(const tleStr of all){
-    const lines = tleStr.trim().split(/\r?\n/).filter(Boolean);
-    const l1 = lines.find(x=>x.trim().startsWith('1 '));
-    const l2 = lines.find(x=>x.trim().startsWith('2 '));
-    if(!l1 || !l2) continue;
-    const ep = tleEpochToMs(l1);
-    if(!ep) continue;
-    const diff = Math.abs(ep - eventUtcMs);
-    if(diff < bestDiff){
-      bestDiff = diff;
-      best = { line1: l1.trim(), line2: l2.trim(), epochMs: ep };
-    }
-  }
-  return best;
-}
-
-function groundTrackFromTle(tle, startUtcMs, endUtcMs, stepSec=30){
-  const satrec = satellite.twoline2satrec(tle.line1, tle.line2);
-  const pts = [];
-  for(let t = startUtcMs; t <= endUtcMs; t += stepSec*1000){
-    const date = new Date(t);
-    const pv = satellite.propagate(satrec, date);
-    if(!pv.position) continue;
-    const gmst = satellite.gstime(date);
-    const geo = satellite.eciToGeodetic(pv.position, gmst);
-    const lat = satellite.degreesLat(geo.latitude);
-    const lon = satellite.degreesLong(geo.longitude);
-    const lonNorm = ((lon + 540) % 360) - 180;
-    pts.push([lat, lonNorm, t]);
-  }
-  return pts;
-}
-
-// Major annual showers (approximate activity windows; individual years vary).
-const METEOR_SHOWERS = [
-  { name: "Quadrantids", start: "01-01", end: "01-12", peak: "01-03" },
-  { name: "Lyrids", start: "04-16", end: "04-25", peak: "04-22" },
-  { name: "Eta Aquariids", start: "04-19", end: "05-28", peak: "05-06" },
-  { name: "Delta Aquariids", start: "07-12", end: "08-23", peak: "07-30" },
-  { name: "Perseids", start: "07-17", end: "08-24", peak: "08-12" },
-  { name: "Draconids", start: "10-06", end: "10-10", peak: "10-08" },
-  { name: "Orionids", start: "10-02", end: "11-07", peak: "10-21" },
-  { name: "Leonids", start: "11-06", end: "11-30", peak: "11-17" },
-  { name: "Geminids", start: "12-04", end: "12-17", peak: "12-14" },
-  { name: "Ursids", start: "12-17", end: "12-26", peak: "12-22" },
-];
-
-function mmddToDayOfYear(year, mmdd){
-  const [mm, dd] = mmdd.split('-').map(x=>parseInt(x,10));
-  const d = new Date(Date.UTC(year, mm-1, dd, 0,0,0));
-  const start = new Date(Date.UTC(year,0,1,0,0,0));
-  return Math.floor((d - start) / 86400000) + 1;
-}
-
-function activeMeteorShowers(dateUtc){
-  const y = dateUtc.getUTCFullYear();
-  const doy = Math.floor((dateUtc - new Date(Date.UTC(y,0,1))) / 86400000) + 1;
-  const active = [];
-  for(const s of METEOR_SHOWERS){
-    const s0 = mmddToDayOfYear(y, s.start);
-    const s1 = mmddToDayOfYear(y, s.end);
-    const inRange = (s0 <= s1) ? (doy >= s0 && doy <= s1) : (doy >= s0 || doy <= s1);
-    if(inRange) active.push(s);
-  }
-  return active;
-}
-
-let selectedRecord = null;
-
-function syncAstroToggles(){
-  if(els.toggleSat){
-    if(els.toggleSat.checked) satLayer.addTo(map);
-    else map.removeLayer(satLayer);
-  }
-  if(els.toggleMeteor){
-    if(els.toggleMeteor.checked) meteorLayer.addTo(map);
-    else map.removeLayer(meteorLayer);
-  }
-}
-
-async function recalcAstroForSelected(){
-  if(!els.astroStatus) return;
-  if(!selectedRecord){
-    els.astroStatus.textContent = 'Select a case first (click a marker).';
-    return;
-  }
-
-  const wantSat = !!(els.toggleSat && els.toggleSat.checked);
-  const wantMet = !!(els.toggleMeteor && els.toggleMeteor.checked);
-
-  satLayer.clearLayers();
-  meteorLayer.clearLayers();
-  syncAstroToggles();
-
-  if(!wantSat && !wantMet){
-    els.astroStatus.textContent = 'Astro overlays are off.';
-    return;
-  }
-
-  if(!Number.isFinite(selectedRecord.lat) || !Number.isFinite(selectedRecord.lon)){
-    els.astroStatus.textContent = 'This case has no coordinates (can’t compute overlays).';
-    return;
-  }
-
-  const dateIso = String(selectedRecord.date_iso || '').trim();
-  const dateStr = String(selectedRecord.date || '').trim();
-  const timeStr = String(selectedRecord.time || '').trim() || '12:00';
-
-  let ymd = null;
-  let hm = null;
-
-  const mIso = dateIso.match(/^(\d{4}-\d{2}-\d{2})(?:[ T](\d{2}:\d{2}))?/);
-  if(mIso){
-    ymd = mIso[1];
-    hm = mIso[2] || timeStr;
-  } else {
-    const mDate = dateStr.match(/(\d{4}-\d{2}-\d{2})/);
-    if(mDate){
-      ymd = mDate[1];
-      hm = timeStr;
-    }
-  }
-
-  if(!ymd){
-    els.astroStatus.textContent = 'Date format not recognised (expected YYYY-MM-DD).';
-    return;
-  }
-
-  const utcMs = ukLocalToUtcMs(ymd, hm);
-  if(utcMs == null){
-    els.astroStatus.textContent = 'Could not convert UK time to UTC for this case.';
-    return;
-  }
-  const utc = new Date(utcMs);
-
-  const statusLines = [];
-  statusLines.push(`Selected: ${selectedRecord.case || 'case'} • ${fmtUtcMs(utcMs)} (from UK local time)`);
-
-  if(wantMet){
-    const active = activeMeteorShowers(utc);
-    const txt = active.length ? active.map(s => `${s.name} (peak ~${s.peak})`).join(', ') : 'None of the major annual showers';
-    statusLines.push(`Meteor showers: ${txt}`);
-
-    L.marker([selectedRecord.lat, selectedRecord.lon], { icon: meteorIcon, title: 'Meteor context' })
-      .bindPopup(`
-        <div class="popup-inner">
-          <h3>Meteor context</h3>
-          <p class="popup-date">${escapeHtml(selectedRecord.date || '')}${selectedRecord.time ? ` • ${escapeHtml(selectedRecord.time)}` : ''}</p>
-          <div class="tags"><span class="tag">Meteor showers</span></div>
-          <div style="font-size:13px;line-height:1.45">
-            <div><span class="k">Active showers:</span> ${escapeHtml(txt)}</div>
-            <div style="margin-top:10px;color:#6b7280">Note: shower activity windows are approximate; individual years vary. Sporadic meteors can still occur any night.</div>
-          </div>
-        </div>
-      `, { maxWidth: 420 })
-      .addTo(meteorLayer);
-  }
-
-  if(wantSat){
-    const choice = (els.satChoice && els.satChoice.value) ? els.satChoice.value : 'iss';
-    const sats = SAT_SETS[choice] || SAT_SETS.iss;
-
-    const windowMin = 30;
-    const startMs = utcMs - windowMin*60*1000;
-    const endMs = utcMs + windowMin*60*1000;
-
-    for(const s of sats){
-      try{
-        const tle = await fetchNearestTle(s.norad, utcMs);
-        if(!tle){
-          statusLines.push(`${s.name}: no TLE found for that date.`);
-          continue;
-        }
-        const track = groundTrackFromTle(tle, startMs, endMs, 30);
-        if(track.length < 2){
-          statusLines.push(`${s.name}: could not compute track.`);
-          continue;
-        }
-
-        const latlngs = track.map(p => [p[0], p[1]]);
-        L.polyline(latlngs, { weight: 3, opacity: 0.85 }).addTo(satLayer);
-
-        let best = track[0];
-        let bestDiff = Infinity;
-        for(const p of track){
-          const diff = Math.abs(p[2] - utcMs);
-          if(diff < bestDiff){
-            bestDiff = diff;
-            best = p;
-          }
-        }
-
-        L.marker([best[0], best[1]], { icon: satIcon, title: s.name })
-          .bindPopup(`
-            <div class="popup-inner">
-              <h3>${escapeHtml(s.name)}</h3>
-              <p class="popup-date">${fmtUtcMs(utcMs)}</p>
-              <div class="tags"><span class="tag">Satellite track</span></div>
-              <div style="font-size:13px;line-height:1.45">
-                <div><span class="k">NORAD:</span> ${escapeHtml(String(s.norad))}</div>
-                <div style="margin-top:8px"><span class="k">Position at case time:</span> ${best[0].toFixed(3)}, ${best[1].toFixed(3)}</div>
-                <div style="margin-top:8px;color:#6b7280">Track shown for ±${windowMin} minutes around the case time.</div>
-                <div style="margin-top:8px;color:#6b7280">TLE epoch used: ${fmtUtcMs(tle.epochMs)} (nearest available)</div>
-              </div>
-            </div>
-          `, { maxWidth: 420 })
-          .addTo(satLayer);
-
-        statusLines.push(`${s.name}: track computed (TLE epoch ${fmtUtcMs(tle.epochMs)}).`);
-      } catch(e){
-        console.warn('Satellite overlay failed:', s, e);
-        statusLines.push(`${s.name}: error (${e && e.message ? e.message : e}).`);
-      }
-    }
-  }
-
-  els.astroStatus.innerHTML = statusLines.map(s => `<div class="hint">${escapeHtml(s)}</div>`).join('');
-  syncAstroToggles();
-}
-
 
   // Minimal curated sets (major airports + key bases). You can add/remove items anytime.
   const AIRPORTS = [
@@ -1118,9 +794,9 @@ function escapeHtml(str){
   }
 
   function matchesFilters(r){
-    const q = (els.search ? els.search.value : '').trim().toLowerCase();
-    const reg = els.region ? els.region.value : '';
-    const minCred = parseInt(els.minCred ? els.minCred.value : '1', 10);
+    const q = els.search.value.trim().toLowerCase();
+    const reg = els.region.value;
+    const minCred = parseInt(els.minCred.value, 10);
     const y = r.year || 0;
     const enc = (els.encounter && els.encounter.value) ? els.encounter.value : '';
 
@@ -1154,7 +830,6 @@ function escapeHtml(str){
       const m = makeCircleMarker(r.lat, r.lon, r.cred);
       m.bindPopup(makePopupHTML(r), { maxWidth: 420 });
       m.on('click', () => highlightListItem(r.id));
-      m.on('popupopen', () => { selectedRecord = r; if((els.toggleSat && els.toggleSat.checked) || (els.toggleMeteor && els.toggleMeteor.checked)) recalcAstroForSelected(); });
       cluster.addLayer(m);
       markersById.set(r.id, m);
     }
@@ -1177,7 +852,6 @@ function escapeHtml(str){
         const mk = markersById.get(r.id);
         if(mk){
           map.setView(mk.getLatLng(), Math.max(map.getZoom(), 9));
-          selectedRecord = r;
           mk.openPopup();
         }
       });
@@ -1250,20 +924,20 @@ function highlightListItem(id){
     currentYearMin = minY;
     currentYearMax = maxY;
 
-    if(els.hasNoUiSlider(yearSlider) ? yearSlider.noUiSlider : null)){
-      els.hasNoUiSlider(yearSlider) ? yearSlider.noUiSlider : null).destroy();
+    if(els.yearSlider.noUiSlider){
+      els.yearSlider.noUiSlider.destroy();
     }
-    if((els.yearSlider) && window.noUiSlider){ noUiSlider.create(els.yearSlider, {
+    noUiSlider.create(els.yearSlider, {
       start: [minY, maxY],
       connect: true,
       step: 1,
       range: { min: minY, max: maxY },
       format: { to: v => Math.round(v), from: v => parseInt(v,10) }
-    }); }
+    });
     els.yearMin.textContent = minY;
     els.yearMax.textContent = maxY;
 
-    els.hasNoUiSlider(yearSlider) ? if(hasNoUiSlider(yearSlider)) yearSlider.noUiSlider.on('update', (values) => {
+    els.yearSlider.noUiSlider.on('update', (values) => {
       currentYearMin = parseInt(values[0],10);
       currentYearMax = parseInt(values[1],10);
       els.yearMin.textContent = currentYearMin;
@@ -1275,10 +949,8 @@ function highlightListItem(id){
   function populateRegionOptions(){
     const set = new Set(records.map(r => r.region).filter(Boolean));
     const regions = Array.from(set).sort();
-    if(els.region){
-      els.region.innerHTML = '<option value="">All</option>' + regions.map(r => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join('');
-    }
-}
+    els.region.innerHTML = '<option value="">All</option>' + regions.map(r => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join('');
+  }
 
   // Accept these coordinate headers:
   //  - lat/lon  (preferred)
@@ -1465,19 +1137,19 @@ function highlightListItem(id){
   }
 
   ['input','change'].forEach(evt => {
-    if(els.search) els.search.addEventListener(evt, () => render());
-    if(els.region) els.region.addEventListener(evt, () => render());
-    if(els.minCred) els.minCred.addEventListener(evt, () => render());
+    els.search.addEventListener(evt, () => render());
+    els.region.addEventListener(evt, () => render());
+    els.minCred.addEventListener(evt, () => render());
     if(els.encounter) els.encounter.addEventListener(evt, () => render());
   });
 
   els.fitBtn.addEventListener('click', () => { fitToMarkers(); fixMapSizeSoon(); });
   els.resetBtn.addEventListener('click', () => {
-    if(els.search) els.search.value = '';
-    if(els.region) els.region.value = '';
-    if(els.minCred) els.minCred.value = '3';
+    els.search.value = '';
+    els.region.value = '';
+    els.minCred.value = '3';
     if(els.encounter) els.encounter.value = '';
-    const slider = els.hasNoUiSlider(yearSlider) ? yearSlider.noUiSlider : null);
+    const slider = els.yearSlider.noUiSlider;
     if(slider){
       const r = slider.options.range;
       slider.set([r.min, r.max]);
@@ -1507,12 +1179,6 @@ function highlightListItem(id){
 
   if(els.toggleAirports) els.toggleAirports.addEventListener('change', syncLayerToggles);
   if(els.toggleBases) els.toggleBases.addEventListener('change', syncLayerToggles);
-
-// Astro toggles / controls
-if(els.toggleSat) els.toggleSat.addEventListener('change', () => { syncAstroToggles(); recalcAstroForSelected(); });
-if(els.toggleMeteor) els.toggleMeteor.addEventListener('change', () => { syncAstroToggles(); recalcAstroForSelected(); });
-if(els.satChoice) els.satChoice.addEventListener('change', () => { if(els.toggleSat && els.toggleSat.checked) recalcAstroForSelected(); });
-if(els.recalcAstroBtn) els.recalcAstroBtn.addEventListener('click', () => recalcAstroForSelected());
 
 
   loadFromGoogleSheets().catch(err => {
