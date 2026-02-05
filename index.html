@@ -426,6 +426,52 @@ select:focus {
   color: rgba(229,231,235,.78);
 }
 
+
+/* Popup layout helpers */
+.poi-popup-wrap{
+  display:flex;
+  flex-direction:column;
+  gap: 6px;
+  padding: 2px 4px 2px 2px;
+}
+.poi-popup-meta{
+  font-size: 11px;
+  color: rgba(229,231,235,.65);
+}
+.poi-popup-actions{
+  display:flex;
+  gap: 8px;
+  margin-top: 2px;
+}
+.poi-popup-btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  color: #e5e7eb;
+  background: rgba(59,130,246,.18);
+  border: 1px solid rgba(59,130,246,.35);
+}
+.poi-popup-btn:hover{
+  background: rgba(59,130,246,.28);
+}
+.poi-popup-btn.secondary{
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.14);
+}
+.poi-popup-btn.secondary:hover{
+  background: rgba(255,255,255,.10);
+}
+/* Give the close button room so it doesn't overlap content */
+.leaflet-popup.poi-popup .leaflet-popup-content-wrapper{
+  padding: 10px 36px 10px 12px;
+}
+
 </style>
 </head>
 
@@ -690,14 +736,14 @@ select:focus {
 
     AIRPORTS.forEach(a => {
       const mk = L.marker([a.lat, a.lon], { icon: airportIcon, title: a.name })
-        .bindPopup(`<div class="poi-popup-title">${esc(a.name)}</div><div class="poi-popup-sub">Airport</div>`, { className: 'poi-popup', closeButton: true, autoPanPadding: [18,18] })
+        .bindPopup(`<div class="poi-popup-wrap"><div class="poi-popup-title">${esc(a.name)}</div><div class="poi-popup-sub">Airport</div><div class="poi-popup-meta">Lat ${Number(a.lat).toFixed(4)}, Lon ${Number(a.lon).toFixed(4)}</div><div class="poi-popup-actions"><a class="poi-popup-btn" href="https://www.google.com/maps?q=${encodeURIComponent(a.lat + ',' + a.lon)}" target="_blank" rel="noopener">Open in Google Maps</a></div></div>`, { className: 'poi-popup', closeButton: true, autoPanPadding: [18,18] })
         .bindTooltip(esc(a.name), { className: 'poi-tip', direction: 'top', offset: [0, -10], opacity: 0.95 });
       airportsLayer.addLayer(mk);
     });
 
     BASES.forEach(b => {
       const mk = L.marker([b.lat, b.lon], { icon: baseIcon, title: b.name })
-        .bindPopup(`<div class="poi-popup-title">${esc(b.name)}</div><div class="poi-popup-sub">Military base</div>`, { className: 'poi-popup', closeButton: true, autoPanPadding: [18,18] })
+        .bindPopup(`<div class="poi-popup-wrap"><div class="poi-popup-title">${esc(b.name)}</div><div class="poi-popup-sub">Military base</div><div class="poi-popup-meta">Lat ${Number(b.lat).toFixed(4)}, Lon ${Number(b.lon).toFixed(4)}</div><div class="poi-popup-actions"><a class="poi-popup-btn" href="https://www.google.com/maps?q=${encodeURIComponent(b.lat + ',' + b.lon)}" target="_blank" rel="noopener">Open in Google Maps</a></div></div>`, { className: 'poi-popup', closeButton: true, autoPanPadding: [18,18] })
         .bindTooltip(esc(b.name), { className: 'poi-tip', direction: 'top', offset: [0, -10], opacity: 0.95 });
       basesLayer.addLayer(mk);
     });
