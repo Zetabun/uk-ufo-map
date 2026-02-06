@@ -49,66 +49,6 @@
     }
     .btn:hover{background:rgba(255,255,255,.07)}
     .wrap{display:grid;grid-template-columns:360px 1fr;height:calc(100vh - 58px)}
-
-    /* =========================
-       Responsive layout (mobile)
-       - Sidebar becomes an off-canvas drawer
-       ========================= */
-    #panelToggle{display:none}
-
-    .overlay{display:none}
-
-    @media (max-width: 960px){
-      /* Map takes full screen; filters become a slide-in drawer */
-      .wrap{
-        grid-template-columns: 1fr;
-        height: calc(100vh - 58px);
-      }
-
-      #panelToggle{
-        display:inline-flex;
-        align-items:center;
-        justify-content:center;
-      }
-
-      #panel{
-        position: fixed;
-        top: 58px; /* header height */
-        left: 0;
-        bottom: 0;
-        width: min(520px, 92vw);
-        height: auto;
-        transform: translateX(-105%);
-        transition: transform .25s ease;
-        z-index: 20;
-        border-right: none;
-        border-bottom: 1px solid var(--ios-border);
-        box-shadow: 18px 0 55px rgba(0,0,0,.22);
-      }
-
-      body.panel-open #panel{
-        transform: translateX(0);
-      }
-
-      .overlay{
-        position: fixed;
-        inset: 58px 0 0 0; /* below header */
-        background: rgba(0,0,0,.38);
-        backdrop-filter: blur(2px);
-        -webkit-backdrop-filter: blur(2px);
-        z-index: 15;
-        display: none;
-      }
-
-      body.panel-open .overlay{
-        display:block;
-      }
-
-      /* Ensure the map fills the area below the header */
-      main{height: 100%}
-      #map{height: calc(100vh - 58px)}
-    }
-
     #panel{
       border-right:1px solid var(--border);
       background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,0));
@@ -119,7 +59,7 @@
       min-height:0;
       -webkit-overflow-scrolling:touch;
     }
-    #map{height:100%;width:100%}
+    #map{height:100%;width:100%;position:relative;z-index:0}
     .card{background:rgba(17,24,39,.7);border:1px solid var(--border);border-radius:14px;padding:12px;margin-bottom:12px}
     .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
     .row > *{flex:1;min-width:120px}
@@ -621,23 +561,23 @@ select:focus {
     /* Only restyle the left sidebar/panel */
     #panel{
       background: var(--ios-bg);
-      color: var(--ios-text);
+      color: var(--text);
       border-right: 1px solid var(--ios-border);
     }
 
     /* Cards + surfaces */
     #panel .card{
-      background: var(--ios-card);
-      border: 1px solid var(--ios-border2);
+      background: rgba(17,24,39,.92);
+      border: 1px solid var(--border);
       box-shadow: 0 10px 28px rgba(0,0,0,0.06);
     }
     #panel .kpi{
       background: var(--ios-card2);
-      border: 1px solid var(--ios-border2);
+      border: 1px solid var(--border);
     }
     #panel .item{
       background: var(--ios-card2);
-      border: 1px solid var(--ios-border2);
+      border: 1px solid var(--border);
     }
     #panel .item:hover{ background: #ededf3; }
 
@@ -656,9 +596,9 @@ select:focus {
     /* Inputs */
     #panel input,
     #panel select{
-      background: var(--ios-card);
-      color: var(--ios-text);
-      border: 1px solid var(--ios-border2);
+      background: rgba(17,24,39,.92);
+      color: var(--text);
+      border: 1px solid var(--border);
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.5);
     }
     #panel input::placeholder{ color: rgba(110,110,115,0.75); }
@@ -666,8 +606,8 @@ select:focus {
     /* Override the global "dark dropdowns" so selects inside the panel are light */
     #panel select,
     #panel option{
-      background: var(--ios-card) !important;
-      color: var(--ios-text) !important;
+      background: rgba(17,24,39,.92) !important;
+      color: var(--text) !important;
     }
     #panel select:hover{ border-color: var(--ios-border); }
     #panel select:focus,
@@ -679,7 +619,7 @@ select:focus {
     /* Pills */
     #panel .pill{
       color: var(--ios-muted);
-      border: 1px solid var(--ios-border2);
+      border: 1px solid var(--border);
       background: rgba(60,60,67,0.06);
     }
 
@@ -691,7 +631,7 @@ select:focus {
     /* Progress */
     #panel .progress{
       background: rgba(60,60,67,0.10);
-      border: 1px solid var(--ios-border2);
+      border: 1px solid var(--border);
     }
     #panel .progress > div{
       background: linear-gradient(90deg, var(--ios-accent), #5ac8fa);
@@ -705,7 +645,7 @@ select:focus {
       background: var(--ios-accent);
     }
     #panel #yearSlider .noUi-handle{
-      background: var(--ios-card);
+      background: rgba(17,24,39,.92);
       border: 2px solid rgba(0,122,255,0.35);
       box-shadow: 0 10px 26px rgba(0,0,0,0.14);
     }
@@ -713,7 +653,7 @@ select:focus {
     /* iOS-style toggles – match the light panel */
     #panel .slider{
       background: rgba(60,60,67,0.16);
-      border: 1px solid var(--ios-border2);
+      border: 1px solid var(--border);
     }
     #panel .slider:before{
       background: #ffffff;
@@ -728,7 +668,62 @@ select:focus {
     #panel .card > div[style*="font-weight:700"],
     #panel .card > div[style*="font-weight:650"],
     #panel .card > div[style*="font-weight:800"]{
-      color: var(--ios-text);
+      color: var(--text);
+    }
+
+
+    /* Mobile drawer (collapsible left panel) */
+    #panelToggle{display:none}
+    #panelOverlay{
+      position:fixed;inset:0;
+      background:rgba(0,0,0,.55);
+      z-index:19;
+    }
+
+    /* Small edge tab to open/close the drawer on mobile */
+    #panelTab{display:none}
+    body.panel-open #panelOverlay{display:block}
+    @media (max-width: 960px){
+      #panelToggle{display:inline-flex;align-items:center;gap:6px}
+      .wrap{grid-template-columns:1fr}
+      #panelTab{
+        display:flex;
+        position:fixed;
+        left:0;
+        top:50%;
+        transform:translateY(-50%);
+        width:34px;
+        height:56px;
+        align-items:center;
+        justify-content:center;
+        border:1px solid var(--border);
+        background:rgba(17,24,39,.92);
+        color:var(--text);
+        font-size:20px;
+        line-height:1;
+        padding:0;
+        z-index:21;
+        border-radius:0 14px 14px 0;
+        box-shadow: 0 10px 28px rgba(0,0,0,0.12);
+        cursor:pointer;
+        transition:left .25s ease, transform .25s ease;
+        user-select:none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      #panelTab:active{ transform:translateY(-50%) scale(0.98); }
+      #panel{
+        position:fixed;
+        background: rgba(17,24,39,.96);
+        left:0;
+        top:58px;
+        width:min(360px, 88vw);
+        height:calc(100vh - 58px);
+        transform:translateX(-110%);
+        transition:transform .25s ease;
+        z-index:20;
+        box-shadow: 12px 0 30px rgba(0,0,0,.35);
+      }
+      body.panel-open #panel{transform:translateX(0)}
     }
 
 </style>
@@ -746,7 +741,10 @@ select:focus {
     <button class="btn" id="resetBtn">Reset filters</button>
   </div>
 </header>
-<div class="overlay" id="overlay" aria-hidden="true"></div>
+
+<div id="panelOverlay" hidden></div>
+
+<button id="panelTab" class="panel-tab" aria-controls="panel" aria-expanded="false" aria-label="Show filters">›</button>
 
 <div class="wrap">
   <aside id="panel">
@@ -897,9 +895,7 @@ select:focus {
     yearMax: document.getElementById('yearMax'),
     encounter: document.getElementById('encounter'),
     toggleAirports: document.getElementById('toggleAirports'),
-    toggleBases: document.getElementById('toggleBases'),
-    panelToggle: document.getElementById('panelToggle'),
-    overlay: document.getElementById('overlay')
+    toggleBases: document.getElementById('toggleBases')
   };
 
   // Map
@@ -909,6 +905,78 @@ select:focus {
     subdomains: 'abcd',
     attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
   }).addTo(map);
+
+  // Mobile: collapsible filter panel (off-canvas drawer)
+  const mqPanel = window.matchMedia('(max-width: 960px)');
+  const panelToggleBtn = document.getElementById('panelToggle');
+  const panelOverlay = document.getElementById('panelOverlay');
+  const panelTabBtn = document.getElementById('panelTab');
+
+  function setPanelOpen(isOpen){
+    if(!mqPanel.matches){
+      // Desktop: panel is always visible, no overlay
+      document.body.classList.remove('panel-open');
+      if(panelOverlay) panelOverlay.setAttribute('hidden','');
+      if(panelToggleBtn) panelToggleBtn.setAttribute('aria-expanded','true');
+      if(panelTabBtn){
+        panelTabBtn.setAttribute('aria-expanded','true');
+        panelTabBtn.style.left = '0px';
+      }
+      return;
+    }
+
+    if(isOpen){
+      document.body.classList.add('panel-open');
+      if(panelOverlay) panelOverlay.removeAttribute('hidden');
+      if(panelToggleBtn) panelToggleBtn.setAttribute('aria-expanded','true');
+      if(panelTabBtn){
+        panelTabBtn.textContent = '‹';
+        panelTabBtn.setAttribute('aria-expanded','true');
+        panelTabBtn.setAttribute('aria-label','Hide filters');
+        const w = document.getElementById('panel')?.getBoundingClientRect?.().width || 0;
+        panelTabBtn.style.left = Math.max(0, Math.round(w - 1)) + 'px';
+      }
+    } else {
+      document.body.classList.remove('panel-open');
+      if(panelOverlay) panelOverlay.setAttribute('hidden','');
+      if(panelToggleBtn) panelToggleBtn.setAttribute('aria-expanded','false');
+      if(panelTabBtn){
+        panelTabBtn.textContent = '›';
+        panelTabBtn.setAttribute('aria-expanded','false');
+        panelTabBtn.setAttribute('aria-label','Show filters');
+        panelTabBtn.style.left = '0px';
+      }
+    }
+
+    // Leaflet needs this after layout changes (drawer transition)
+    window.setTimeout(() => {
+      try { map.invalidateSize(); } catch (e) {}
+    }, 280);
+  }
+
+  // Default: closed on mobile, always open on desktop
+  setPanelOpen(false);
+
+  if(panelToggleBtn){
+    panelToggleBtn.addEventListener('click', () => {
+      const open = document.body.classList.contains('panel-open');
+      setPanelOpen(!open);
+    });
+  }
+  if(panelTabBtn){
+    panelTabBtn.addEventListener('click', () => {
+      const open = document.body.classList.contains('panel-open');
+      setPanelOpen(!open);
+    });
+  }
+  if(panelOverlay){
+    panelOverlay.addEventListener('click', () => setPanelOpen(false));
+  }
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'Escape') setPanelOpen(false);
+  });
+  mqPanel.addEventListener('change', () => setPanelOpen(false));
+
 
   const cluster = L.markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 50 });
   map.addLayer(cluster);
@@ -1021,35 +1089,6 @@ select:focus {
     setTimeout(() => { try { map.invalidateSize(true); } catch(e){} }, 900);
   }
   window.addEventListener('resize', () => fixMapSizeSoon());
-
-
-  // ==== Responsive: sidebar drawer (mobile) ====
-  function setPanelOpen(open){
-    const isOpen = !!open;
-    document.body.classList.toggle('panel-open', isOpen);
-    if(els.panelToggle){
-      els.panelToggle.setAttribute('aria-expanded', String(isOpen));
-    }
-    // Leaflet needs this when the layout changes
-    fixMapSizeSoon();
-  }
-
-  if(els.panelToggle){
-    els.panelToggle.addEventListener('click', () => {
-      setPanelOpen(!document.body.classList.contains('panel-open'));
-    });
-  }
-  if(els.overlay){
-    els.overlay.addEventListener('click', () => setPanelOpen(false));
-  }
-
-  // If we cross back into desktop layout, ensure drawer is closed
-  try{
-    const mq = window.matchMedia('(min-width: 961px)');
-    const onMq = (e) => { if(e.matches) setPanelOpen(false); };
-    if(mq.addEventListener) mq.addEventListener('change', onMq);
-    else if(mq.addListener) mq.addListener(onMq);
-  } catch(e){}
 
 
   // State
@@ -1636,7 +1675,6 @@ function highlightListItem(id){
     if(map.hasLayer(basesLayer)) upd(basesLayer);
   }
   map.on('zoomend', () => updatePoiTooltipMode());
-  map.on('click', () => { if(window.innerWidth <= 960) setPanelOpen(false); });
 
 
   if(els.toggleAirports) els.toggleAirports.addEventListener('change', syncLayerToggles);
