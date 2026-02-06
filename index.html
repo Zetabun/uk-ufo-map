@@ -540,6 +540,137 @@ select:focus {
   background: rgba(29,78,216,.16) !important;
 }
 
+
+    /* =========================
+       iOS Grey theme (LEFT PANEL)
+       ========================= */
+    :root{
+      --ios-bg:#f2f2f7;
+      --ios-card:#ffffff;
+      --ios-card2:#f7f7fa;
+      --ios-text:#1c1c1e;
+      --ios-muted:#6e6e73;
+      --ios-border:rgba(60,60,67,0.18);
+      --ios-border2:rgba(60,60,67,0.10);
+      --ios-accent:#007aff;
+      --ios-danger:#ff3b30;
+      --ios-ok:#34c759;
+      --ios-warn:#ff9f0a;
+    }
+
+    /* Only restyle the left sidebar/panel */
+    #panel{
+      background: var(--ios-bg);
+      color: var(--ios-text);
+      border-right: 1px solid var(--ios-border);
+    }
+
+    /* Cards + surfaces */
+    #panel .card{
+      background: var(--ios-card);
+      border: 1px solid var(--ios-border2);
+      box-shadow: 0 10px 28px rgba(0,0,0,0.06);
+    }
+    #panel .kpi{
+      background: var(--ios-card2);
+      border: 1px solid var(--ios-border2);
+    }
+    #panel .item{
+      background: var(--ios-card2);
+      border: 1px solid var(--ios-border2);
+    }
+    #panel .item:hover{ background: #ededf3; }
+
+    /* Text */
+    #panel label,
+    #panel .hint,
+    #panel .status,
+    #panel .kpi .small,
+    #panel .item .meta,
+    #panel .layer-hint{
+      color: var(--ios-muted);
+    }
+    #panel a{ color: var(--ios-accent); }
+    #panel a:hover{ text-decoration: underline; }
+
+    /* Inputs */
+    #panel input,
+    #panel select{
+      background: var(--ios-card);
+      color: var(--ios-text);
+      border: 1px solid var(--ios-border2);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.5);
+    }
+    #panel input::placeholder{ color: rgba(110,110,115,0.75); }
+
+    /* Override the global "dark dropdowns" so selects inside the panel are light */
+    #panel select,
+    #panel option{
+      background: var(--ios-card) !important;
+      color: var(--ios-text) !important;
+    }
+    #panel select:hover{ border-color: var(--ios-border); }
+    #panel select:focus,
+    #panel input:focus{
+      border-color: rgba(0,122,255,0.55);
+      box-shadow: 0 0 0 4px rgba(0,122,255,0.15);
+    }
+
+    /* Pills */
+    #panel .pill{
+      color: var(--ios-muted);
+      border: 1px solid var(--ios-border2);
+      background: rgba(60,60,67,0.06);
+    }
+
+    /* Status dots */
+    #panel .dot.ok{ background: var(--ios-ok); }
+    #panel .dot.warn{ background: var(--ios-warn); }
+    #panel .dot.bad{ background: var(--ios-danger); }
+
+    /* Progress */
+    #panel .progress{
+      background: rgba(60,60,67,0.10);
+      border: 1px solid var(--ios-border2);
+    }
+    #panel .progress > div{
+      background: linear-gradient(90deg, var(--ios-accent), #5ac8fa);
+    }
+
+    /* Slider (noUiSlider) – keep it slim, make it iOS-y */
+    #panel #yearSlider .noUi-target{
+      background: rgba(60,60,67,0.12);
+    }
+    #panel #yearSlider .noUi-connect{
+      background: var(--ios-accent);
+    }
+    #panel #yearSlider .noUi-handle{
+      background: var(--ios-card);
+      border: 2px solid rgba(0,122,255,0.35);
+      box-shadow: 0 10px 26px rgba(0,0,0,0.14);
+    }
+
+    /* iOS-style toggles – match the light panel */
+    #panel .slider{
+      background: rgba(60,60,67,0.16);
+      border: 1px solid var(--ios-border2);
+    }
+    #panel .slider:before{
+      background: #ffffff;
+      box-shadow: 0 10px 22px rgba(0,0,0,0.18);
+    }
+    #panel .switch input:checked + .slider{
+      background: rgba(0,122,255,0.85);
+      border-color: rgba(0,122,255,0.45);
+    }
+
+    /* Header inside cards – slightly crisper */
+    #panel .card > div[style*="font-weight:700"],
+    #panel .card > div[style*="font-weight:650"],
+    #panel .card > div[style*="font-weight:800"]{
+      color: var(--ios-text);
+    }
+
 </style>
 </head>
 
