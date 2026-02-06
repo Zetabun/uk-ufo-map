@@ -1343,8 +1343,19 @@ function escapeHtml(str){
       div.addEventListener('click', () => {
         const mk = markersById.get(r.id);
         if(mk){
-          map.setView(mk.getLatLng(), Math.max(map.getZoom(), 9));
-          mk.openPopup();
+          const targetZoom = Math.max(map.getZoom(), 12);
+          // If marker clustering is enabled, ensure the marker is visible before opening its popup
+          if (cluster && typeof cluster.zoomToShowLayer === 'function') {
+            cluster.zoomToShowLayer(mk, () => {
+              map.flyTo(mk.getLatLng(), targetZoom, { animate: true, duration: 0.6 });
+              mk.openPopup();
+              highlightListItem(r.id);
+            });
+          } else {
+            map.flyTo(mk.getLatLng(), targetZoom, { animate: true, duration: 0.6 });
+            mk.openPopup();
+            highlightListItem(r.id);
+          }
         }
       });
       els.list.appendChild(div);
