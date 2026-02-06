@@ -693,7 +693,9 @@ select:focus {
     #panelTab{display:none}
     body.panel-open #panelOverlay{display:block}
     @media (max-width: 960px){
-      #panelToggle{display:inline-flex;align-items:center;gap:6px}
+      header{display:none}
+      .wrap{height:100vh}
+      #panelToggle{display:none}
       .wrap{grid-template-columns:1fr}
       #panelTab{
         display:flex;
@@ -724,9 +726,9 @@ select:focus {
         position:fixed;
         background: rgba(17,24,39,.96);
         left:0;
-        top:58px;
+        top:0;
         width:min(360px, 88vw);
-        height:calc(100vh - 58px);
+        height:100vh;
         transform:translateX(-110%);
         transition:transform .25s ease;
         z-index:20;
