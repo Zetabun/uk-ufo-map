@@ -1246,7 +1246,15 @@ function escapeHtml(str){
         .replace(/[^a-z0-9]+/g,'-')
         .replace(/^-+|-+$/g,'');
     }
-    const slug = (r.slug && String(r.slug).trim()) ? String(r.slug).trim().toLowerCase() : slugify(r.case || 'case');
+    // Prefer a provided "slug" column; otherwise derive from the case title.
+    // You can override specific cases via the alias map below.
+    const aliasSlugs = {
+      'rendlesham forest incident': 'rendlesham'
+    };
+    const baseTitle = (r.case || '').toString().trim().toLowerCase();
+    const slug = (r.slug && String(r.slug).trim())
+      ? String(r.slug).trim().toLowerCase()
+      : (aliasSlugs[baseTitle] || slugify(r.case || 'case'));
     const readMoreHref = `case/${encodeURIComponent(slug)}/`;
     const readMoreInline = isFeatured ? ` <a class="readmore-btn" href="${readMoreHref}">Read more</a>` : '';
 
