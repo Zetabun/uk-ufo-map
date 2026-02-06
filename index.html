@@ -247,6 +247,19 @@ html, body {
   color: #111827;
 }
 
+/* Read more pill (in popup tag row) */
+.leaflet-popup-content a.tag.tag-readmore{
+  background: rgba(29,78,216,.12);
+  border: 1px solid rgba(29,78,216,.30);
+  color: #1d4ed8;
+  font-weight: 800;
+  cursor: pointer;
+}
+.leaflet-popup-content a.tag.tag-readmore:hover{
+  background: rgba(29,78,216,.18);
+  text-decoration: none;
+}
+
 /* --- Dark dropdowns (select + options) --- */
 select, option {
   background: #0b1220;
@@ -737,6 +750,29 @@ select:focus {
       body.panel-open #panel{transform:translateX(0)}
     }
 
+/* Read more button (highlighted cases) */
+.leaflet-popup-content .readmore-btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding: 6px 10px;
+  margin-left: 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: none;
+  color: #1d4ed8;
+  background: rgba(59,130,246,.10);
+  border: 1px solid rgba(59,130,246,.28);
+  white-space: nowrap;
+}
+.leaflet-popup-content .readmore-btn:hover{
+  background: rgba(59,130,246,.16);
+}
+.leaflet-popup-content .summary{
+  margin-top: 10px;
+}
+
 </style>
 </head>
 
@@ -781,7 +817,7 @@ select:focus {
       </div>
       <div style="height:10px"></div>
       <div class="hint">
-        Markers plot from <b>lat</b>/<b>lon</b> columns in your Google Sheet. If a row is missing coordinates, the site will try to geocode the <b>Location</b> and cache the result in your browser.
+        This website indexes every MoD / GOV UFO report from 1997 until the MoD closed its dedicated UFO desk in 2009. Other cases are also listed with varying levels of evidence and reputability. Use the filters below to fine tune your search.
       </div>
     </div>
 
@@ -851,15 +887,26 @@ select:focus {
         </label>
       </div>
 
-      <div class="layer-hint">These markers are an optional reference layer and won’t affect your sightings filters.</div>
+      <div class="toggle-row">
+        <div>
+          <div style="font-weight:650;font-size:13px">Flight paths</div>
+          <div class="label">Show common passenger flight corridors (approx)</div>
+        </div>
+        <label class="switch" title="Toggle flight paths">
+          <input type="checkbox" id="toggleFlightPaths">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="layer-hint">These layers are optional references and won’t affect your sightings filters.</div>
     </div>
 
 
     <div class="card">
       <div class="row" style="justify-content:space-between;align-items:baseline">
         <div style="flex:1">
-          <div style="font-weight:700;margin-bottom:6px">Results</div>
-          <div class="hint" id="resultsHint">Click an item to zoom and open its popup.</div>
+          <div style="font-weight:700;margin-bottom:6px">Highlights</div>
+          <div class="hint" id="resultsHint">Tap an item to zoom and open its popup.</div>
         </div>
       </div>
       <div style="height:8px"></div>
@@ -906,7 +953,8 @@ select:focus {
     yearMax: document.getElementById('yearMax'),
     encounter: document.getElementById('encounter'),
     toggleAirports: document.getElementById('toggleAirports'),
-    toggleBases: document.getElementById('toggleBases')
+    toggleBases: document.getElementById('toggleBases'),
+    toggleFlightPaths: document.getElementById('toggleFlightPaths')
   };
 
   // Map
@@ -965,8 +1013,8 @@ select:focus {
     }, 280);
   }
 
-  // Default: closed on mobile, always open on desktop
-  setPanelOpen(false);
+  // Default: open on mobile so users can start filtering immediately; on desktop the panel is always visible
+  setPanelOpen(mqPanel.matches);
 
   if(panelToggleBtn){
     panelToggleBtn.addEventListener('click', () => {
@@ -1016,6 +1064,37 @@ select:focus {
       className: '',
       iconSize: [34,34]
     })
+  });
+
+
+  // Common flight paths (reference layer)
+  // NOTE: This is intentionally "approx" and local so the map works without any external aviation API.
+  // You can swap this to a real dataset later (e.g., your own precomputed GeoJSON).
+  const FLIGHT_PATHS_GEOJSON = {
+    "type":"FeatureCollection",
+    "features":[
+      {"type":"Feature","properties":{"name":"LHR ↔︎ EDI"},"geometry":{"type":"LineString","coordinates":[[-0.4543,51.4700],[-3.3725,55.9500]]}},
+      {"type":"Feature","properties":{"name":"LHR ↔︎ GLA"},"geometry":{"type":"LineString","coordinates":[[-0.4543,51.4700],[-4.4331,55.8719]]}},
+      {"type":"Feature","properties":{"name":"LHR ↔︎ MAN"},"geometry":{"type":"LineString","coordinates":[[-0.4543,51.4700],[-2.2750,53.3537]]}},
+      {"type":"Feature","properties":{"name":"LGW ↔︎ EDI"},"geometry":{"type":"LineString","coordinates":[[-0.1821,51.1537],[-3.3725,55.9500]]}},
+      {"type":"Feature","properties":{"name":"MAN ↔︎ BFS"},"geometry":{"type":"LineString","coordinates":[[-2.2750,53.3537],[-6.2158,54.6575]]}},
+      {"type":"Feature","properties":{"name":"BHX ↔︎ BFS"},"geometry":{"type":"LineString","coordinates":[[-1.7480,52.4539],[-6.2158,54.6575]]}},
+      {"type":"Feature","properties":{"name":"BRS ↔︎ EDI"},"geometry":{"type":"LineString","coordinates":[[-2.7191,51.3827],[-3.3725,55.9500]]}}
+    ]
+  };
+
+  // Style and render (as GeoJSON so it's easy to replace later)
+  const flightPathsLayer = L.geoJSON(FLIGHT_PATHS_GEOJSON, {
+    style: () => ({
+      color: 'rgba(255,255,255,0.55)',
+      weight: 2,
+      opacity: 0.9,
+      dashArray: '6 8'
+    }),
+    onEachFeature: (feature, layer) => {
+      const name = (feature && feature.properties && feature.properties.name) ? feature.properties.name : 'Flight path';
+      layer.bindTooltip(name, { sticky: true, opacity: 0.9 });
+    }
   });
 
   // Minimal curated sets (major airports + key bases). You can add/remove items anytime.
@@ -1178,6 +1257,16 @@ function escapeHtml(str){
     }[s]));
   }
 
+  function isTruthyYes(v){
+    const raw = String(v || '').trim().toLowerCase();
+    // Accept values like: "yes", "yes (featured)", "y", "true", "1"
+    if(['y','yes','true','1'].includes(raw)) return true;
+    if(raw.startsWith('yes')) return true;
+    if(raw.startsWith('y')) return true;
+    if(raw.includes('yes')) return true;
+    return false;
+  }
+
     function makePopupHTML(r){
     const sources = parseSources(r.sources);
     const videos = parseVideos(r.videos);
@@ -1201,6 +1290,29 @@ function escapeHtml(str){
                     </div>`;
           }).join('')}`
       : '';
+
+    const isFeatured = isTruthyYes(r.highlight);
+
+    // Prefer a provided "slug" column; otherwise derive from the case title.
+    function slugify(v){
+      return String(v || '')
+        .trim()
+        .toLowerCase()
+        .replace(/['"]/g,'')
+        .replace(/[^a-z0-9]+/g,'-')
+        .replace(/^-+|-+$/g,'');
+    }
+    // Prefer a provided "slug" column; otherwise derive from the case title.
+    // You can override specific cases via the alias map below.
+    const aliasSlugs = {
+      'rendlesham forest incident': 'rendlesham'
+    };
+    const baseTitle = (r.case || '').toString().trim().toLowerCase();
+    const slug = (r.slug && String(r.slug).trim())
+      ? String(r.slug).trim().toLowerCase()
+      : (aliasSlugs[baseTitle] || slugify(r.case || 'case'));
+    const readMoreHref = `case/${encodeURIComponent(slug)}/`;
+    const readMoreTag = isFeatured ? ` <a class="tag tag-readmore" href="${readMoreHref}">Read more</a>` : '';
 
     let linksHtml = '';
     if(sources.length || videos.length){
@@ -1228,6 +1340,7 @@ function escapeHtml(str){
           const enc = raw ? (isYes ? 'Yes' : 'No') : 'No';
           return `<span class="tag">Encounter: ${enc}</span>`;
         })()}
+      ${readMoreTag}
       </div>`;
 
     const weatherBlock = (r.weather && String(r.weather).trim())
@@ -1248,7 +1361,7 @@ function escapeHtml(str){
           <div><span class="k">Location:</span> ${escapeHtml(r.location || '—')}</div>
           <div style="margin-top:8px"><span class="k">Witness:</span> ${escapeHtml(r.witness || '—')}</div>
           <div style="margin-top:8px"><span class="k">Evidence:</span> ${escapeHtml(r.evidence || '—')}</div>
-          ${r.summary ? `<div style="margin-top:10px">${escapeHtml(r.summary)}</div>` : ''}
+          ${r.summary ? `<div class="summary">${escapeHtml(r.summary)}</div>` : ''}
           ${r.why ? `<div style="margin-top:10px;color:#6b7280">${escapeHtml(r.why)}</div>` : ''}
           ${linksHtml}
         </div>
@@ -1320,7 +1433,10 @@ function escapeHtml(str){
       markersById.set(r.id, m);
     }
 
-    for(const r of shown.slice(0, 1000)){
+    const featured = shown.filter(r => isTruthyYes(r.highlight));
+
+    // List: show highlighted cases only (featured)
+    for(const r of featured.slice(0, 1000)){
       const div = document.createElement('div');
       div.className = 'item';
       div.dataset.id = r.id;
@@ -1337,8 +1453,19 @@ function escapeHtml(str){
       div.addEventListener('click', () => {
         const mk = markersById.get(r.id);
         if(mk){
-          map.setView(mk.getLatLng(), Math.max(map.getZoom(), 9));
-          mk.openPopup();
+          const targetZoom = Math.max(map.getZoom(), 12);
+          // If marker clustering is enabled, ensure the marker is visible before opening its popup
+          if (cluster && typeof cluster.zoomToShowLayer === 'function') {
+            cluster.zoomToShowLayer(mk, () => {
+              map.flyTo(mk.getLatLng(), targetZoom, { animate: true, duration: 0.6 });
+              mk.openPopup();
+              highlightListItem(r.id);
+            });
+          } else {
+            map.flyTo(mk.getLatLng(), targetZoom, { animate: true, duration: 0.6 });
+            mk.openPopup();
+            highlightListItem(r.id);
+          }
         }
       });
       els.list.appendChild(div);
@@ -1348,6 +1475,11 @@ function escapeHtml(str){
       const empty = document.createElement('div');
       empty.className = 'hint';
       empty.textContent = 'No results match your filters.';
+      els.list.appendChild(empty);
+    } else if(featured.length === 0){
+      const empty = document.createElement('div');
+      empty.className = 'hint';
+      empty.textContent = 'No highlighted cases in the current selection.';
       els.list.appendChild(empty);
     }
   }
@@ -1458,6 +1590,8 @@ function highlightListItem(id){
       evidence: getField(r, ['Evidence','evidence']),
       summary: getField(r, ['Summary','summary']),
       status: getField(r, ['Status','status']),
+      highlight: getField(r, ['Highlights','Highlight','highlights','highlight']),
+      slug: getField(r, ['Slug','slug']),
       cred: Number(getField(r, ['Credibility (1-5)','Credibility','credibility']) || 0),
       why: getField(r, ['Why considered reputable','Why','why']),
       // Weather columns (support your new naming variations)
@@ -1663,8 +1797,14 @@ function highlightListItem(id){
         map.removeLayer(basesLayer);
       }
     }
+    if(els.toggleFlightPaths){
+      if(els.toggleFlightPaths.checked){
+        flightPathsLayer.addTo(map);
+      } else {
+        map.removeLayer(flightPathsLayer);
+      }
+    }
   }
-
 
   // Make POI labels "stick" only when zoomed in (reduces clutter when zoomed out)
   function updatePoiTooltipMode(){
@@ -1690,6 +1830,7 @@ function highlightListItem(id){
 
   if(els.toggleAirports) els.toggleAirports.addEventListener('change', syncLayerToggles);
   if(els.toggleBases) els.toggleBases.addEventListener('change', syncLayerToggles);
+  if(els.toggleFlightPaths) els.toggleFlightPaths.addEventListener('change', syncLayerToggles);
 
 
   loadFromGoogleSheets().catch(err => {
