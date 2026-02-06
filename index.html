@@ -965,8 +965,8 @@ select:focus {
     }, 280);
   }
 
-  // Default: closed on mobile, always open on desktop
-  setPanelOpen(false);
+  // Default: open on mobile so users can start filtering immediately; on desktop the panel is always visible
+  setPanelOpen(mqPanel.matches);
 
   if(panelToggleBtn){
     panelToggleBtn.addEventListener('click', () => {
