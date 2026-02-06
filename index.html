@@ -49,6 +49,66 @@
     }
     .btn:hover{background:rgba(255,255,255,.07)}
     .wrap{display:grid;grid-template-columns:360px 1fr;height:calc(100vh - 58px)}
+
+    /* =========================
+       Responsive layout (mobile)
+       - Sidebar becomes an off-canvas drawer
+       ========================= */
+    #panelToggle{display:none}
+
+    .overlay{display:none}
+
+    @media (max-width: 960px){
+      /* Map takes full screen; filters become a slide-in drawer */
+      .wrap{
+        grid-template-columns: 1fr;
+        height: calc(100vh - 58px);
+      }
+
+      #panelToggle{
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+      }
+
+      #panel{
+        position: fixed;
+        top: 58px; /* header height */
+        left: 0;
+        bottom: 0;
+        width: min(520px, 92vw);
+        height: auto;
+        transform: translateX(-105%);
+        transition: transform .25s ease;
+        z-index: 20;
+        border-right: none;
+        border-bottom: 1px solid var(--ios-border);
+        box-shadow: 18px 0 55px rgba(0,0,0,.22);
+      }
+
+      body.panel-open #panel{
+        transform: translateX(0);
+      }
+
+      .overlay{
+        position: fixed;
+        inset: 58px 0 0 0; /* below header */
+        background: rgba(0,0,0,.38);
+        backdrop-filter: blur(2px);
+        -webkit-backdrop-filter: blur(2px);
+        z-index: 15;
+        display: none;
+      }
+
+      body.panel-open .overlay{
+        display:block;
+      }
+
+      /* Ensure the map fills the area below the header */
+      main{height: 100%}
+      #map{height: calc(100vh - 58px)}
+    }
+
     #panel{
       border-right:1px solid var(--border);
       background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,0));
@@ -681,10 +741,12 @@ select:focus {
     <p>Data source: <strong>GOV.UK where possible</strong>. Sources are provided per case.</p>
   </div>
   <div class="right">
+    <button class="btn" id="panelToggle" aria-controls="panel" aria-expanded="false">Filters</button>
     <button class="btn" id="fitBtn">Fit to markers</button>
     <button class="btn" id="resetBtn">Reset filters</button>
   </div>
 </header>
+<div class="overlay" id="overlay" aria-hidden="true"></div>
 
 <div class="wrap">
   <aside id="panel">
@@ -835,7 +897,9 @@ select:focus {
     yearMax: document.getElementById('yearMax'),
     encounter: document.getElementById('encounter'),
     toggleAirports: document.getElementById('toggleAirports'),
-    toggleBases: document.getElementById('toggleBases')
+    toggleBases: document.getElementById('toggleBases'),
+    panelToggle: document.getElementById('panelToggle'),
+    overlay: document.getElementById('overlay')
   };
 
   // Map
@@ -957,6 +1021,35 @@ select:focus {
     setTimeout(() => { try { map.invalidateSize(true); } catch(e){} }, 900);
   }
   window.addEventListener('resize', () => fixMapSizeSoon());
+
+
+  // ==== Responsive: sidebar drawer (mobile) ====
+  function setPanelOpen(open){
+    const isOpen = !!open;
+    document.body.classList.toggle('panel-open', isOpen);
+    if(els.panelToggle){
+      els.panelToggle.setAttribute('aria-expanded', String(isOpen));
+    }
+    // Leaflet needs this when the layout changes
+    fixMapSizeSoon();
+  }
+
+  if(els.panelToggle){
+    els.panelToggle.addEventListener('click', () => {
+      setPanelOpen(!document.body.classList.contains('panel-open'));
+    });
+  }
+  if(els.overlay){
+    els.overlay.addEventListener('click', () => setPanelOpen(false));
+  }
+
+  // If we cross back into desktop layout, ensure drawer is closed
+  try{
+    const mq = window.matchMedia('(min-width: 961px)');
+    const onMq = (e) => { if(e.matches) setPanelOpen(false); };
+    if(mq.addEventListener) mq.addEventListener('change', onMq);
+    else if(mq.addListener) mq.addListener(onMq);
+  } catch(e){}
 
 
   // State
@@ -1543,6 +1636,7 @@ function highlightListItem(id){
     if(map.hasLayer(basesLayer)) upd(basesLayer);
   }
   map.on('zoomend', () => updatePoiTooltipMode());
+  map.on('click', () => { if(window.innerWidth <= 960) setPanelOpen(false); });
 
 
   if(els.toggleAirports) els.toggleAirports.addEventListener('change', syncLayerToggles);
