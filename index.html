@@ -1177,7 +1177,7 @@ function escapeHtml(str){
       markersById.set(r.id, m);
     }
 
-    for(const r of shown.slice(0, 250)){
+    for(const r of shown.slice(0, 1000)){
       const div = document.createElement('div');
       div.className = 'item';
       div.dataset.id = r.id;
