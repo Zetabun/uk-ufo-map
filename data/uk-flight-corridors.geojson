@@ -1,0 +1,21 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "name": "Demo corridor zone" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-0.70, 51.20],
+            [ 0.20, 51.20],
+            [ 0.20, 51.80],
+            [-0.70, 51.80],
+            [-0.70, 51.20]
+          ]
+        ]
+      }
+    }
+  ]
+}
