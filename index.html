@@ -959,6 +959,10 @@ select:focus {
 
   // Map
   const map = L.map('map', { zoomControl: true }).setView([54.5, -3.0], 6);
+  // Pane for flight paths so lines sit above tiles/markers and stay visible
+  map.createPane('flightPathsPane');
+  map.getPane('flightPathsPane').style.zIndex = 450;
+  map.getPane('flightPathsPane').style.pointerEvents = 'auto';
   L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
     maxZoom: 19,
     subdomains: 'abcd',
@@ -1082,20 +1086,37 @@ select:focus {
       {"type":"Feature","properties":{"name":"BRS ↔︎ EDI"},"geometry":{"type":"LineString","coordinates":[[-2.7191,51.3827],[-3.3725,55.9500]]}}
     ]
   };
-
   // Style and render (as GeoJSON so it's easy to replace later)
-  const flightPathsLayer = L.geoJSON(FLIGHT_PATHS_GEOJSON, {
+  // Sleek "cased" flight paths: soft glow underlay + crisp top line
+  const flightPathsGlow = L.geoJSON(FLIGHT_PATHS_GEOJSON, {
+    pane: 'flightPathsPane',
     style: () => ({
-      color: 'rgba(255,255,255,0.55)',
-      weight: 2,
-      opacity: 0.9,
-      dashArray: '6 8'
+      color: 'rgba(59, 130, 246, 0.22)',  // glow underlay
+      weight: 6,
+      opacity: 1,
+      dashArray: '8 10',
+      lineCap: 'round',
+      lineJoin: 'round'
+    }),
+    interactive: false
+  });
+
+  const flightPathsLine = L.geoJSON(FLIGHT_PATHS_GEOJSON, {
+    pane: 'flightPathsPane',
+    style: () => ({
+      color: 'rgba(59, 130, 246, 0.95)',   // crisp top
+      weight: 2.2,
+      opacity: 1,
+      dashArray: '8 10',
+      lineCap: 'round',
+      lineJoin: 'round'
     }),
     onEachFeature: (feature, layer) => {
       const name = (feature && feature.properties && feature.properties.name) ? feature.properties.name : 'Flight path';
       layer.bindTooltip(name, { sticky: true, opacity: 0.9 });
     }
   });
+
 
   // Minimal curated sets (major airports + key bases). You can add/remove items anytime.
   const AIRPORTS = [
@@ -1799,9 +1820,11 @@ function highlightListItem(id){
     }
     if(els.toggleFlightPaths){
       if(els.toggleFlightPaths.checked){
-        flightPathsLayer.addTo(map);
+        flightPathsGlow.addTo(map);
+        flightPathsLine.addTo(map);
       } else {
-        map.removeLayer(flightPathsLayer);
+        map.removeLayer(flightPathsGlow);
+        map.removeLayer(flightPathsLine);
       }
     }
   }
