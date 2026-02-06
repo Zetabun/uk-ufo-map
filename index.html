@@ -887,7 +887,18 @@ select:focus {
         </label>
       </div>
 
-      <div class="layer-hint">These markers are an optional reference layer and won’t affect your sightings filters.</div>
+      <div class="toggle-row">
+        <div>
+          <div style="font-weight:650;font-size:13px">Flight paths</div>
+          <div class="label">Show common passenger flight corridors (approx)</div>
+        </div>
+        <label class="switch" title="Toggle flight paths">
+          <input type="checkbox" id="toggleFlightPaths">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="layer-hint">These layers are optional references and won’t affect your sightings filters.</div>
     </div>
 
 
@@ -942,7 +953,8 @@ select:focus {
     yearMax: document.getElementById('yearMax'),
     encounter: document.getElementById('encounter'),
     toggleAirports: document.getElementById('toggleAirports'),
-    toggleBases: document.getElementById('toggleBases')
+    toggleBases: document.getElementById('toggleBases'),
+    toggleFlightPaths: document.getElementById('toggleFlightPaths')
   };
 
   // Map
@@ -1052,6 +1064,37 @@ select:focus {
       className: '',
       iconSize: [34,34]
     })
+  });
+
+
+  // Common flight paths (reference layer)
+  // NOTE: This is intentionally "approx" and local so the map works without any external aviation API.
+  // You can swap this to a real dataset later (e.g., your own precomputed GeoJSON).
+  const FLIGHT_PATHS_GEOJSON = {
+    "type":"FeatureCollection",
+    "features":[
+      {"type":"Feature","properties":{"name":"LHR ↔︎ EDI"},"geometry":{"type":"LineString","coordinates":[[-0.4543,51.4700],[-3.3725,55.9500]]}},
+      {"type":"Feature","properties":{"name":"LHR ↔︎ GLA"},"geometry":{"type":"LineString","coordinates":[[-0.4543,51.4700],[-4.4331,55.8719]]}},
+      {"type":"Feature","properties":{"name":"LHR ↔︎ MAN"},"geometry":{"type":"LineString","coordinates":[[-0.4543,51.4700],[-2.2750,53.3537]]}},
+      {"type":"Feature","properties":{"name":"LGW ↔︎ EDI"},"geometry":{"type":"LineString","coordinates":[[-0.1821,51.1537],[-3.3725,55.9500]]}},
+      {"type":"Feature","properties":{"name":"MAN ↔︎ BFS"},"geometry":{"type":"LineString","coordinates":[[-2.2750,53.3537],[-6.2158,54.6575]]}},
+      {"type":"Feature","properties":{"name":"BHX ↔︎ BFS"},"geometry":{"type":"LineString","coordinates":[[-1.7480,52.4539],[-6.2158,54.6575]]}},
+      {"type":"Feature","properties":{"name":"BRS ↔︎ EDI"},"geometry":{"type":"LineString","coordinates":[[-2.7191,51.3827],[-3.3725,55.9500]]}}
+    ]
+  };
+
+  // Style and render (as GeoJSON so it's easy to replace later)
+  const flightPathsLayer = L.geoJSON(FLIGHT_PATHS_GEOJSON, {
+    style: () => ({
+      color: 'rgba(255,255,255,0.55)',
+      weight: 2,
+      opacity: 0.9,
+      dashArray: '6 8'
+    }),
+    onEachFeature: (feature, layer) => {
+      const name = (feature && feature.properties && feature.properties.name) ? feature.properties.name : 'Flight path';
+      layer.bindTooltip(name, { sticky: true, opacity: 0.9 });
+    }
   });
 
   // Minimal curated sets (major airports + key bases). You can add/remove items anytime.
@@ -1754,8 +1797,16 @@ function highlightListItem(id){
         map.removeLayer(basesLayer);
       }
     }
+    if(els.toggleFlightPaths){
+      if(els.toggleFlightPaths.checked){
+        flightPathsLayer.addTo(map);
+      } else {
+        map.removeLayer(flightPathsLayer);
+      }
+    }
   }
 
+    }
 
   // Make POI labels "stick" only when zoomed in (reduces clutter when zoomed out)
   function updatePoiTooltipMode(){
@@ -1781,6 +1832,7 @@ function highlightListItem(id){
 
   if(els.toggleAirports) els.toggleAirports.addEventListener('change', syncLayerToggles);
   if(els.toggleBases) els.toggleBases.addEventListener('change', syncLayerToggles);
+  if(els.toggleFlightPaths) els.toggleFlightPaths.addEventListener('change', syncLayerToggles);
 
 
   loadFromGoogleSheets().catch(err => {
