@@ -963,7 +963,13 @@ select:focus {
     maxZoom: 19,
     subdomains: 'abcd',
     attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
-  }).addTo(map);
+).addTo(map);
+
+  // Flight paths pane (keeps corridors above tiles + easy to style)
+  map.createPane('flightPathsPane');
+  map.getPane('flightPathsPane').style.zIndex = 450;
+  map.getPane('flightPathsPane').style.pointerEvents = 'none';
+
 
   // Mobile: collapsible filter panel (off-canvas drawer)
   const mqPanel = window.matchMedia('(max-width: 960px)');
@@ -1070,30 +1076,72 @@ select:focus {
   // Common flight paths (reference layer)
   // NOTE: This is intentionally "approx" and local so the map works without any external aviation API.
   // You can swap this to a real dataset later (e.g., your own precomputed GeoJSON).
-  const FLIGHT_PATHS_GEOJSON = {
-    "type":"FeatureCollection",
-    "features":[
-      {"type":"Feature","properties":{"name":"LHR ↔︎ EDI"},"geometry":{"type":"LineString","coordinates":[[-0.4543,51.4700],[-3.3725,55.9500]]}},
-      {"type":"Feature","properties":{"name":"LHR ↔︎ GLA"},"geometry":{"type":"LineString","coordinates":[[-0.4543,51.4700],[-4.4331,55.8719]]}},
-      {"type":"Feature","properties":{"name":"LHR ↔︎ MAN"},"geometry":{"type":"LineString","coordinates":[[-0.4543,51.4700],[-2.2750,53.3537]]}},
-      {"type":"Feature","properties":{"name":"LGW ↔︎ EDI"},"geometry":{"type":"LineString","coordinates":[[-0.1821,51.1537],[-3.3725,55.9500]]}},
-      {"type":"Feature","properties":{"name":"MAN ↔︎ BFS"},"geometry":{"type":"LineString","coordinates":[[-2.2750,53.3537],[-6.2158,54.6575]]}},
-      {"type":"Feature","properties":{"name":"BHX ↔︎ BFS"},"geometry":{"type":"LineString","coordinates":[[-1.7480,52.4539],[-6.2158,54.6575]]}},
-      {"type":"Feature","properties":{"name":"BRS ↔︎ EDI"},"geometry":{"type":"LineString","coordinates":[[-2.7191,51.3827],[-3.3725,55.9500]]}}
-    ]
-  };
+  // Flight paths / corridors (best practice for this site):
+// Load a precomputed historic-density layer (GeoJSON) from your repo.
+// This is the most accurate approach for a static GitHub-hosted site: you generate the corridors offline,
+// commit them to ./data/uk-flight-corridors.geojson, and the map toggles them on/off.
+//
+// Expected geometry:
+//  - Polygon / MultiPolygon = "busy sky" corridor areas (recommended; easiest to interpret)
+//  - LineString / MultiLineString = corridor centerlines (ok, but less obvious)
+//
+// If the external file is missing, we fall back to a small illustrative sample so the UI still works.
+const FLIGHT_PATHS_URL = './data/uk-flight-corridors.geojson';
+
+const FLIGHT_PATHS_FALLBACK_GEOJSON = {
+  "type":"FeatureCollection",
+  "features":[
+    {"type":"Feature","properties":{"name":"LHR ↔︎ EDI (illustrative)"},"geometry":{"type":"LineString","coordinates":[[-0.4543,51.4700],[-3.3725,55.9500]]}},
+    {"type":"Feature","properties":{"name":"LHR ↔︎ GLA (illustrative)"},"geometry":{"type":"LineString","coordinates":[[-0.4543,51.4700],[-4.4331,55.8719]]}},
+    {"type":"Feature","properties":{"name":"LHR ↔︎ MAN (illustrative)"},"geometry":{"type":"LineString","coordinates":[[-0.4543,51.4700],[-2.2750,53.3537]]}}
+  ]
+};
+
+let flightPathsLoaded = false;
+async function ensureFlightPathsLoaded() {
+  if (flightPathsLoaded) return;
+
+  try {
+    const res = await fetch(FLIGHT_PATHS_URL, { cache: 'force-cache' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const geo = await res.json();
+    flightPathsLayer.addData(geo);
+    flightPathsLoaded = true;
+    console.info('[Flight paths] Loaded', FLIGHT_PATHS_URL);
+  } catch (e) {
+    // Fallback so the layer never appears "broken" during dev
+    flightPathsLayer.addData(FLIGHT_PATHS_FALLBACK_GEOJSON);
+    flightPathsLoaded = true;
+    console.warn('[Flight paths] Failed to load', FLIGHT_PATHS_URL, '— using fallback sample instead.', e);
+  }
+}
+
 
   // Style and render (as GeoJSON so it's easy to replace later)
-  const flightPathsLayer = L.geoJSON(FLIGHT_PATHS_GEOJSON, {
-    style: () => ({
-      color: 'rgba(255,255,255,0.55)',
-      weight: 2,
+  const flightPathsLayer = L.geoJSON(null, {
+  pane: 'flightPathsPane',
+  style: (feature) => {
+    const t = feature?.geometry?.type || '';
+    const isPoly = (t === 'Polygon' || t === 'MultiPolygon');
+    return isPoly ? {
+      color: '#f59e0b',
+      weight: 1,
       opacity: 0.9,
-      dashArray: '6 8'
-    }),
-    onEachFeature: (feature, layer) => {
-      const name = (feature && feature.properties && feature.properties.name) ? feature.properties.name : 'Flight path';
-      layer.bindTooltip(name, { sticky: true, opacity: 0.9 });
+      fillColor: '#f59e0b',
+      fillOpacity: 0.18
+    } : {
+      color: '#f59e0b',
+      weight: 3,
+      opacity: 0.95,
+      dashArray: '8 10'
+    };
+  },
+  onEachFeature: (feature, layer) => {
+    const name = feature?.properties?.name || 'Air traffic corridor';
+    layer.bindTooltip(name, { sticky: true, opacity: 0.9 });
+  }
+});
+
     }
   });
 
@@ -1799,7 +1847,9 @@ function highlightListItem(id){
     }
     if(els.toggleFlightPaths){
       if(els.toggleFlightPaths.checked){
+        ensureFlightPathsLoaded();
         flightPathsLayer.addTo(map);
+        try { flightPathsLayer.bringToFront(); } catch(e) {}
       } else {
         map.removeLayer(flightPathsLayer);
       }
