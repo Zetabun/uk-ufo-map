@@ -1201,6 +1201,16 @@ function escapeHtml(str){
     }[s]));
   }
 
+  function isTruthyYes(v){
+    const raw = String(v || '').trim().toLowerCase();
+    // Accept values like: "yes", "yes (featured)", "y", "true", "1"
+    if(['y','yes','true','1'].includes(raw)) return true;
+    if(raw.startsWith('yes')) return true;
+    if(raw.startsWith('y')) return true;
+    if(raw.includes('yes')) return true;
+    return false;
+  }
+
     function makePopupHTML(r){
     const sources = parseSources(r.sources);
     const videos = parseVideos(r.videos);
@@ -1225,8 +1235,7 @@ function escapeHtml(str){
           }).join('')}`
       : '';
 
-    const rawHighlight = String(r.highlight || '').trim().toLowerCase();
-    const isFeatured = ['yes','y','true','1'].includes(rawHighlight);
+    const isFeatured = isTruthyYes(r.highlight);
 
     // Prefer a provided "slug" column; otherwise derive from the case title.
     function slugify(v){
@@ -1238,7 +1247,7 @@ function escapeHtml(str){
         .replace(/^-+|-+$/g,'');
     }
     const slug = (r.slug && String(r.slug).trim()) ? String(r.slug).trim().toLowerCase() : slugify(r.case || 'case');
-    const readMoreHref = `/case/${encodeURIComponent(slug)}`;
+    const readMoreHref = `case/${encodeURIComponent(slug)}/`;
     const readMoreInline = isFeatured ? ` <a class="readmore-btn" href="${readMoreHref}">Read more</a>` : '';
 
     let linksHtml = '';
@@ -1359,10 +1368,7 @@ function escapeHtml(str){
       markersById.set(r.id, m);
     }
 
-    const featured = shown.filter(r => {
-      const raw = String(r.highlight || '').trim().toLowerCase();
-      return ['yes','y','true','1'].includes(raw);
-    });
+    const featured = shown.filter(r => isTruthyYes(r.highlight));
 
     // List: show highlighted cases only (featured)
     for(const r of featured.slice(0, 1000)){
