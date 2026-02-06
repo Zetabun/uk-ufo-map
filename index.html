@@ -247,6 +247,19 @@ html, body {
   color: #111827;
 }
 
+/* Read more pill (in popup tag row) */
+.leaflet-popup-content a.tag.tag-readmore{
+  background: rgba(29,78,216,.12);
+  border: 1px solid rgba(29,78,216,.30);
+  color: #1d4ed8;
+  font-weight: 800;
+  cursor: pointer;
+}
+.leaflet-popup-content a.tag.tag-readmore:hover{
+  background: rgba(29,78,216,.18);
+  text-decoration: none;
+}
+
 /* --- Dark dropdowns (select + options) --- */
 select, option {
   background: #0b1220;
@@ -1256,7 +1269,7 @@ function escapeHtml(str){
       ? String(r.slug).trim().toLowerCase()
       : (aliasSlugs[baseTitle] || slugify(r.case || 'case'));
     const readMoreHref = `case/${encodeURIComponent(slug)}/`;
-    const readMoreInline = isFeatured ? ` <a class="readmore-btn" href="${readMoreHref}">Read more</a>` : '';
+    const readMoreTag = isFeatured ? ` <a class="tag tag-readmore" href="${readMoreHref}">Read more</a>` : '';
 
     let linksHtml = '';
     if(sources.length || videos.length){
@@ -1284,6 +1297,7 @@ function escapeHtml(str){
           const enc = raw ? (isYes ? 'Yes' : 'No') : 'No';
           return `<span class="tag">Encounter: ${enc}</span>`;
         })()}
+      ${readMoreTag}
       </div>`;
 
     const weatherBlock = (r.weather && String(r.weather).trim())
@@ -1304,7 +1318,7 @@ function escapeHtml(str){
           <div><span class="k">Location:</span> ${escapeHtml(r.location || '—')}</div>
           <div style="margin-top:8px"><span class="k">Witness:</span> ${escapeHtml(r.witness || '—')}</div>
           <div style="margin-top:8px"><span class="k">Evidence:</span> ${escapeHtml(r.evidence || '—')}</div>
-          ${r.summary ? `<div class="summary">${escapeHtml(r.summary)}${readMoreInline}</div>` : (isFeatured ? `<div class="summary"><a class="readmore-btn" href="${readMoreHref}">Read more</a></div>` : '')}
+          ${r.summary ? `<div class="summary">${escapeHtml(r.summary)}</div>` : ''}
           ${r.why ? `<div style="margin-top:10px;color:#6b7280">${escapeHtml(r.why)}</div>` : ''}
           ${linksHtml}
         </div>
