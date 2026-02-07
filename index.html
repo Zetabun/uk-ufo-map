@@ -1555,6 +1555,11 @@ if(heatmapHelpBtn && heatmapHelpBubble){
         if(String(k).trim().toLowerCase() === target){
           return row[k];
         }
+      }
+    }
+    return '';
+  }
+
 
   function buildCombinedLocation(row){
     // Try to assemble a human-readable location from common column names if 'Location' isn't present.
