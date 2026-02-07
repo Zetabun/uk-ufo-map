@@ -932,13 +932,53 @@ select:focus {
         </div>
       </div>
 
+
 <div style="height:12px"></div>
-      <label>Year range</label>
+
+    <div class="card" id="dateCard">
+      <div class="row" style="justify-content:space-between;align-items:center;gap:10px">
+        <div style="font-weight:700">Date range</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button type="button" class="btn" id="playBtn" title="Play through the current date window">▶ Play</button>
+        </div>
+      </div>
+
+      <div style="height:10px"></div>
+
+      <div class="grid-2">
+        <div>
+          <label for="dateFrom">From</label>
+          <input id="dateFrom" type="datetime-local" />
+        </div>
+        <div>
+          <label for="dateTo">To</label>
+          <input id="dateTo" type="datetime-local" />
+        </div>
+      </div>
+
+      <div style="height:10px"></div>
+
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <div class="hint" id="dateHint">Use the controls above for fine-grained filtering (day/month/time/year). The year slider below remains as a coarse filter.</div>
+        <div style="display:flex;gap:10px;align-items:center">
+          <label class="label" style="margin:0">Speed</label>
+          <select id="playSpeed" title="Playback speed">
+            <option value="1200">Slow</option>
+            <option value="700" selected>Normal</option>
+            <option value="350">Fast</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="height:12px"></div>
+
+      <label>Year range (coarse)</label>
       <div class="slider-wrap"><div id="yearSlider"></div></div>
       <div class="slider-meta"><span id="yearMin">—</span><span id="yearMax">—</span></div>
     </div>
 
     <div class="card" id="layersCard">
+
       <div style="font-weight:700;margin-bottom:6px">Map layers</div>
 
       <div class="toggle-row">
@@ -1072,6 +1112,10 @@ select:focus {
     list: document.getElementById('list'),
     fitBtn: document.getElementById('fitBtn'),
     resetBtn: document.getElementById('resetBtn'),
+    dateFrom: document.getElementById('dateFrom'),
+    dateTo: document.getElementById('dateTo'),
+    playBtn: document.getElementById('playBtn'),
+    playSpeed: document.getElementById('playSpeed'),
     yearSlider: document.getElementById('yearSlider'),
     yearMin: document.getElementById('yearMin'),
     yearMax: document.getElementById('yearMax'),
@@ -1465,6 +1509,14 @@ if(heatmapHelpBtn && heatmapHelpBubble){
   let markersById = new Map();
   let currentYearMin = 1900, currentYearMax = 2100;
 
+// Fine-grained date/time filtering (milliseconds since epoch)
+let boundsDateMinMs = null, boundsDateMaxMs = null;
+let currentDateMinMs = null, currentDateMaxMs = null;
+
+// Playback state
+let playTimer = null;
+let isPlaying = false;
+
   // UK-ish bounds (used to detect swapped coordinates / bad geocodes)
   const UK_SOFT_BOUNDS = { minLat: 45.0, maxLat: 65.0, minLon: -12.0, maxLon: 6.0 };
 
@@ -1526,7 +1578,123 @@ if(heatmapHelpBtn && heatmapHelpBubble){
     return null;
   }
 
-  function parseSources(src){
+  
+  // Parse a flexible date + time into a UTC timestamp (ms).
+  // Supports:
+  //  - ISO-ish: YYYY-MM-DD (with optional time)
+  //  - UK numeric: DD/MM/YYYY or DD-MM-YYYY (with 2-digit year pivoting like safeYear)
+  //  - Fallback: uses the extracted year only (Jan 1st)
+  function parseRecordDateTime(dateIso, dateStr, timeStr, yearFallback){
+    const tryParseIso = (v) => {
+      const s = String(v || '').trim();
+      if(!s) return null;
+      const ms = Date.parse(s);
+      return Number.isFinite(ms) ? ms : null;
+    };
+
+    // 1) Date_ISO first (many sheets provide this)
+    let ms = tryParseIso(dateIso);
+    if(Number.isFinite(ms)) return ms;
+
+    const dRaw = String(dateStr || '').trim();
+    const tRaw = String(timeStr || '').trim();
+
+    // Time parser (HH:MM or HH:MM:SS)
+    const parseTime = (t) => {
+      if(!t) return { hh:0, mm:0, ss:0 };
+      const m = String(t).trim().match(/^(\d{1,2})(?::(\d{2}))?(?::(\d{2}))?\s*(am|pm)?$/i);
+      if(!m) return { hh:0, mm:0, ss:0 };
+      let hh = parseInt(m[1],10);
+      let mm = m[2] ? parseInt(m[2],10) : 0;
+      let ss = m[3] ? parseInt(m[3],10) : 0;
+      const ap = (m[4] || '').toLowerCase();
+      if(ap){
+        if(ap === 'pm' && hh < 12) hh += 12;
+        if(ap === 'am' && hh === 12) hh = 0;
+      }
+      hh = Math.max(0, Math.min(23, hh));
+      mm = Math.max(0, Math.min(59, mm));
+      ss = Math.max(0, Math.min(59, ss));
+      return { hh, mm, ss };
+    };
+
+    const {hh, mm, ss} = parseTime(tRaw);
+
+    // 2) Try combined date + time
+    if(dRaw){
+      // YYYY-MM-DD (or YYYY/MM/DD)
+      let m = dRaw.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+      if(m){
+        const y = parseInt(m[1],10);
+        const mo = parseInt(m[2],10)-1;
+        const da = parseInt(m[3],10);
+        const dt = Date.UTC(y, mo, da, hh, mm, ss);
+        if(Number.isFinite(dt)) return dt;
+      }
+
+      // DD/MM/YYYY or DD-MM-YYYY (assume UK day-first)
+      m = dRaw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+      if(m){
+        let da = parseInt(m[1],10);
+        let mo = parseInt(m[2],10)-1;
+        const y = parseInt(m[3],10);
+        // If it looks like MM/DD/YYYY (month > 12), swap.
+        if(da > 12 && mo <= 11){
+          // likely DD/MM; keep
+        } else if(mo+1 > 12 && da <= 12){
+          // shouldn't happen; clamp
+          mo = Math.max(0, Math.min(11, mo));
+        }
+        const dt = Date.UTC(y, mo, da, hh, mm, ss);
+        if(Number.isFinite(dt)) return dt;
+      }
+
+      // DD/MM/YY or DD-MM-YY
+      m = dRaw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2})$/);
+      if(m){
+        const da = parseInt(m[1],10);
+        const mo = parseInt(m[2],10)-1;
+        const yy = parseInt(m[3],10);
+        const y = (yy <= 29) ? (2000 + yy) : (1900 + yy);
+        const dt = Date.UTC(y, mo, da, hh, mm, ss);
+        if(Number.isFinite(dt)) return dt;
+      }
+
+      // Last-ditch: let Date try (locale-dependent)
+      ms = tryParseIso(tRaw ? (dRaw + ' ' + tRaw) : dRaw);
+      if(Number.isFinite(ms)) return ms;
+    }
+
+    // 3) Year-only fallback
+    const y = Number.isFinite(yearFallback) ? yearFallback : safeYear(dRaw);
+    if(Number.isFinite(y)) return Date.UTC(y, 0, 1, hh, mm, ss);
+
+    return null;
+  }
+
+  function toLocalInputValue(ms){
+    if(!Number.isFinite(ms)) return '';
+    const d = new Date(ms);
+    const pad = (n) => String(n).padStart(2,'0');
+    // datetime-local expects local time without timezone suffix
+    const y = d.getFullYear();
+    const mo = pad(d.getMonth()+1);
+    const da = pad(d.getDate());
+    const hh = pad(d.getHours());
+    const mm = pad(d.getMinutes());
+    return `${y}-${mo}-${da}T${hh}:${mm}`;
+  }
+
+  function parseLocalInputToMs(val){
+    const s = String(val || '').trim();
+    if(!s) return null;
+    // datetime-local string is treated as local time.
+    const d = new Date(s);
+    const ms = d.getTime();
+    return Number.isFinite(ms) ? ms : null;
+  }
+
+function parseSources(src){
     if(!src) return [];
     return String(src)
       .split(/[\n;,|]+/)
@@ -1773,6 +1941,13 @@ function escapeHtml(str){
     if(!Number.isFinite(y)) return false;
     if(y < currentYearMin || y > currentYearMax) return false;
 
+    // Fine-grained date/time filter (if available)
+    if(Number.isFinite(currentDateMinMs) && Number.isFinite(currentDateMaxMs)){
+      const ms = Number(r.dt_ms);
+      if(!Number.isFinite(ms)) return false;
+      if(ms < currentDateMinMs || ms > currentDateMaxMs) return false;
+    }
+
     if(enc && r.type !== 'crop'){
       const raw = String(r.encounter || '').trim().toLowerCase();
       const isYes = ['yes','y','true','1'].includes(raw);
@@ -1800,6 +1975,98 @@ function escapeHtml(str){
   const maxY = years.length ? Math.max(...years) : new Date().getFullYear();
   initYearSlider(minY, maxY);
 }
+
+function recomputeDateRangeBounds(){
+  const loaded = [...ufoRecords, ...(cropLoaded ? cropRecords : [])];
+  const dts = loaded.map(r => r.dt_ms).filter(ms => Number.isFinite(ms));
+  if(!dts.length){
+    boundsDateMinMs = null;
+    boundsDateMaxMs = null;
+    return;
+  }
+  boundsDateMinMs = Math.min(...dts);
+  boundsDateMaxMs = Math.max(...dts);
+
+  // If current range hasn't been set yet, default to full range.
+  if(!Number.isFinite(currentDateMinMs) || !Number.isFinite(currentDateMaxMs)){
+    currentDateMinMs = boundsDateMinMs;
+    currentDateMaxMs = boundsDateMaxMs;
+  } else {
+    // Clamp
+    currentDateMinMs = Math.max(boundsDateMinMs, Math.min(boundsDateMaxMs, currentDateMinMs));
+    currentDateMaxMs = Math.max(boundsDateMinMs, Math.min(boundsDateMaxMs, currentDateMaxMs));
+    if(currentDateMinMs > currentDateMaxMs){
+      const tmp = currentDateMinMs; currentDateMinMs = currentDateMaxMs; currentDateMaxMs = tmp;
+    }
+  }
+
+  // Sync inputs without triggering loops
+  if(els.dateFrom) els.dateFrom.value = toLocalInputValue(currentDateMinMs);
+  if(els.dateTo) els.dateTo.value = toLocalInputValue(currentDateMaxMs);
+}
+
+function stopPlayback(){
+  isPlaying = false;
+  if(playTimer) clearInterval(playTimer);
+  playTimer = null;
+  if(els.playBtn){
+    els.playBtn.textContent = '▶ Play';
+    els.playBtn.classList.remove('active');
+  }
+}
+
+function startPlayback(){
+  if(!Number.isFinite(boundsDateMinMs) || !Number.isFinite(boundsDateMaxMs)) return;
+  if(!Number.isFinite(currentDateMinMs) || !Number.isFinite(currentDateMaxMs)){
+    currentDateMinMs = boundsDateMinMs;
+    currentDateMaxMs = boundsDateMaxMs;
+  }
+
+  // Ensure a sensible window; default to 1 day if range collapsed.
+  let windowMs = Math.max(1, currentDateMaxMs - currentDateMinMs);
+  const minWindow = 60 * 60 * 1000; // 1 hour
+  if(windowMs < minWindow) windowMs = minWindow;
+
+  isPlaying = true;
+  if(els.playBtn){
+    els.playBtn.textContent = '⏸ Pause';
+    els.playBtn.classList.add('active');
+  }
+
+  const speed = els.playSpeed ? parseInt(els.playSpeed.value, 10) : 700;
+
+  // Start from the earliest possible window within the bounds (nice for first-time play).
+  if(currentDateMinMs <= boundsDateMinMs || currentDateMinMs >= boundsDateMaxMs){
+    currentDateMinMs = boundsDateMinMs;
+    currentDateMaxMs = Math.min(boundsDateMaxMs, boundsDateMinMs + windowMs);
+  }
+
+  playTimer = setInterval(() => {
+    if(!isPlaying) return;
+
+    const nextMin = currentDateMinMs + windowMs;
+    const nextMax = currentDateMaxMs + windowMs;
+
+    if(nextMin >= boundsDateMaxMs){
+      // End reached — snap to last window and stop.
+      currentDateMaxMs = boundsDateMaxMs;
+      currentDateMinMs = Math.max(boundsDateMinMs, boundsDateMaxMs - windowMs);
+      if(els.dateFrom) els.dateFrom.value = toLocalInputValue(currentDateMinMs);
+      if(els.dateTo) els.dateTo.value = toLocalInputValue(currentDateMaxMs);
+      render();
+      stopPlayback();
+      return;
+    }
+
+    currentDateMinMs = nextMin;
+    currentDateMaxMs = Math.min(boundsDateMaxMs, nextMax);
+    if(els.dateFrom) els.dateFrom.value = toLocalInputValue(currentDateMinMs);
+    if(els.dateTo) els.dateTo.value = toLocalInputValue(currentDateMaxMs);
+    render();
+  }, Number.isFinite(speed) ? speed : 700);
+}
+
+
 
 
   function render(){
@@ -1958,10 +2225,22 @@ function highlightListItem(id){
     });
 
     els.yearSlider.noUiSlider.on('update', (values) => {
+      stopPlayback();
       currentYearMin = parseInt(values[0],10);
       currentYearMax = parseInt(values[1],10);
       els.yearMin.textContent = currentYearMin;
       els.yearMax.textContent = currentYearMax;
+
+      // Keep fine date inputs broadly aligned with the year range (clamped to loaded bounds).
+      if(Number.isFinite(boundsDateMinMs) && Number.isFinite(boundsDateMaxMs)){
+        const from = Date.UTC(currentYearMin, 0, 1, 0, 0, 0);
+        const to = Date.UTC(currentYearMax, 11, 31, 23, 59, 59);
+        currentDateMinMs = Math.max(boundsDateMinMs, from);
+        currentDateMaxMs = Math.min(boundsDateMaxMs, to);
+        if(els.dateFrom) els.dateFrom.value = toLocalInputValue(currentDateMinMs);
+        if(els.dateTo) els.dateTo.value = toLocalInputValue(currentDateMaxMs);
+      }
+
       render();
     });
   } else {
@@ -2213,10 +2492,29 @@ function buildCropExtraDetailsHTML(r){
       // Only applies to UFO sightings. Crop circles ignore this filter.
       encounter: (type === 'crop') ? '' : getField(r, ['Encounter','encounter']),
 
-      year: safeYear(getField(r, ['Date_ISO','date_iso','Date','date','Year','year'])),
+      year: null,
+      dt_ms: null,
       lat: Number(latRaw),
       lon: Number(lonRaw)
     };
+
+
+    // Compute a robust datetime (ms since epoch) for filtering + playback.
+    // Preference: Date_ISO → Date + Time → Year fallback.
+    const yFallback = safeYear(getField(r, ['Date_ISO','date_iso','Date','date','Year','year']));
+    const dt = parseRecordDateTime(out.date_iso, out.date, out.time, yFallback);
+    out.dt_ms = dt;
+    // Keep existing year-based behaviour, but derive from dt when possible.
+    if(Number.isFinite(dt)){
+      try { out.year = new Date(dt).getUTCFullYear(); }
+      catch { out.year = yFallback; }
+    } else {
+      out.year = yFallback;
+      // If we have a year but no date, anchor to Jan 1st for range calculations.
+      if(Number.isFinite(out.year)){
+        out.dt_ms = Date.UTC(out.year, 0, 1, 0, 0, 0);
+      }
+    }
 
     // For crop circles, pull any URLs buried in other columns into the sources list
     if(type === 'crop'){
@@ -2354,6 +2652,7 @@ function parseCsvToRows(csvUrl){
     const minY = years.length ? Math.min(...years) : 1950;
     const maxY = years.length ? Math.max(...years) : new Date().getFullYear();
     initYearSlider(minY, maxY);
+    recomputeDateRangeBounds();
 
     populateRegionOptions();
 
@@ -2386,6 +2685,7 @@ function parseCsvToRows(csvUrl){
 
     // Expand slider range (if needed) to include crop circle years, while keeping the user's current selection.
     recomputeYearSliderRange();
+    recomputeDateRangeBounds();
     populateRegionOptions();
 
     const missingCoords = cropRecords.filter(r => !Number.isFinite(r.lat) || !Number.isFinite(r.lon)).length;
@@ -2403,14 +2703,54 @@ function parseCsvToRows(csvUrl){
 
 
   ['input','change'].forEach(evt => {
-    els.search.addEventListener(evt, () => render());
-    els.region.addEventListener(evt, () => render());
-    els.minCred.addEventListener(evt, () => render());
-    if(els.encounter) els.encounter.addEventListener(evt, () => render());
+    els.search.addEventListener(evt, () => { stopPlayback(); render(); });
+    els.region.addEventListener(evt, () => { stopPlayback(); render(); });
+    els.minCred.addEventListener(evt, () => { stopPlayback(); render(); });
+    if(els.encounter) els.encounter.addEventListener(evt, () => { stopPlayback(); render(); });
+
+    if(els.dateFrom) els.dateFrom.addEventListener(evt, () => {
+      stopPlayback();
+      const ms = parseLocalInputToMs(els.dateFrom.value);
+      if(Number.isFinite(ms)) currentDateMinMs = ms;
+      if(Number.isFinite(currentDateMinMs) && Number.isFinite(currentDateMaxMs) && currentDateMinMs > currentDateMaxMs){
+        const tmp = currentDateMinMs; currentDateMinMs = currentDateMaxMs; currentDateMaxMs = tmp;
+        if(els.dateFrom) els.dateFrom.value = toLocalInputValue(currentDateMinMs);
+        if(els.dateTo) els.dateTo.value = toLocalInputValue(currentDateMaxMs);
+      }
+      // Keep the year slider roughly in sync
+      if(Number.isFinite(currentDateMinMs) && Number.isFinite(currentDateMaxMs)){
+        currentYearMin = new Date(currentDateMinMs).getUTCFullYear();
+        currentYearMax = new Date(currentDateMaxMs).getUTCFullYear();
+        if(els.yearSlider && els.yearSlider.noUiSlider){
+          els.yearSlider.noUiSlider.set([currentYearMin, currentYearMax]);
+        }
+      }
+      render();
+    });
+
+    if(els.dateTo) els.dateTo.addEventListener(evt, () => {
+      stopPlayback();
+      const ms = parseLocalInputToMs(els.dateTo.value);
+      if(Number.isFinite(ms)) currentDateMaxMs = ms;
+      if(Number.isFinite(currentDateMinMs) && Number.isFinite(currentDateMaxMs) && currentDateMinMs > currentDateMaxMs){
+        const tmp = currentDateMinMs; currentDateMinMs = currentDateMaxMs; currentDateMaxMs = tmp;
+        if(els.dateFrom) els.dateFrom.value = toLocalInputValue(currentDateMinMs);
+        if(els.dateTo) els.dateTo.value = toLocalInputValue(currentDateMaxMs);
+      }
+      if(Number.isFinite(currentDateMinMs) && Number.isFinite(currentDateMaxMs)){
+        currentYearMin = new Date(currentDateMinMs).getUTCFullYear();
+        currentYearMax = new Date(currentDateMaxMs).getUTCFullYear();
+        if(els.yearSlider && els.yearSlider.noUiSlider){
+          els.yearSlider.noUiSlider.set([currentYearMin, currentYearMax]);
+        }
+      }
+      render();
+    });
   });
 
   els.fitBtn.addEventListener('click', () => { fitToMarkers(); fixMapSizeSoon(); });
   els.resetBtn.addEventListener('click', () => {
+    stopPlayback();
     els.search.value = '';
     els.region.value = '';
     els.minCred.value = '1';
@@ -2422,9 +2762,22 @@ function parseCsvToRows(csvUrl){
       const r = slider.options.range;
       slider.set([r.min, r.max]);
     }
+
+    // Reset date range to loaded bounds (or year-derived range if bounds missing)
+    recomputeDateRangeBounds();
+
     render();
     fitToMarkers();
   });
+
+
+  if(els.playBtn){
+    els.playBtn.addEventListener('click', () => {
+      if(isPlaying) stopPlayback();
+      else startPlayback();
+    });
+  }
+
 
 
   // Layer toggles (airports / bases)
@@ -2491,9 +2844,11 @@ function parseCsvToRows(csvUrl){
   if(els.toggleFlightPaths) els.toggleFlightPaths.addEventListener('change', syncLayerToggles);
   if(els.toggleFlightHeat) els.toggleFlightHeat.addEventListener('change', syncLayerToggles);
   if(els.toggleDensity) els.toggleDensity.addEventListener('change', () => { render(); });
-  if(els.toggleUfo) els.toggleUfo.addEventListener('change', () => { render(); });
+  if(els.toggleUfo) els.toggleUfo.addEventListener('change', () => {
+    stopPlayback(); render(); });
 
   if(els.toggleCrop) els.toggleCrop.addEventListener('change', async () => {
+    stopPlayback();
     if(els.toggleCrop.checked && !cropLoaded){
       try {
         await loadCropDataset();
