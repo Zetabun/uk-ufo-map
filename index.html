@@ -1491,12 +1491,18 @@ if(heatmapHelpBtn && heatmapHelpBubble){
 
   function parseSources(src){
     if(!src) return [];
-    return String(src).split(/[\n;]+/).map(s=>s.trim()).filter(Boolean);
+    return String(src)
+      .split(/[\n;,|]+/)
+      .map(s=>s.trim())
+      .filter(Boolean);
   }
 
   function parseVideos(v){
     if(!v) return [];
-    return String(v).split(/[\n;]+/).map(s=>s.trim()).filter(Boolean);
+    return String(v)
+      .split(/[\n;,|]+/)
+      .map(s=>s.trim())
+      .filter(Boolean);
   }
 
 
@@ -1541,19 +1547,27 @@ function escapeHtml(str){
       ? `<div style="font-weight:800;margin-bottom:6px">Sources</div>
          ${sources.map((u,i) => {
             const label = `Source ${i+1}`;
+            const isUrl = looksLikeUrl(u);
             return `<div style="margin:4px 0">
-                      <a href="${escapeHtml(u)}" target="_blank" rel="noopener">${label}</a>
-                    </div>`;
+              ${isUrl
+                ? `<a href="${escapeHtml(u)}" target="_blank" rel="noopener">${label}</a>`
+                : `<span>${escapeHtml(u)}</span>`
+              }
+            </div>`;
           }).join('')}`
       : '';
 
     const videosBlock = videos.length
-      ? `<div style="font-weight:800;margin-bottom:6px">Videos</div>
+      ? `<div style="font-weight:800;margin-bottom:6px">${(r.type === 'crop') ? 'Media' : 'Videos'}</div>
          ${videos.map((u,i) => {
-            const label = `Video ${i+1}`;
+            const label = `${(r.type === 'crop') ? 'Media' : 'Video'} ${i+1}`;
+            const isUrl = looksLikeUrl(u);
             return `<div style="margin:4px 0">
-                      <a href="${escapeHtml(u)}" target="_blank" rel="noopener">${label}</a>
-                    </div>`;
+              ${isUrl
+                ? `<a href="${escapeHtml(u)}" target="_blank" rel="noopener">${label}</a>`
+                : `<span>${escapeHtml(u)}</span>`
+              }
+            </div>`;
           }).join('')}`
       : '';
 
@@ -1630,6 +1644,7 @@ function escapeHtml(str){
           <div style="margin-top:8px"><span class="k">${r.type === 'crop' ? 'Type' : 'Evidence'}:</span> ${escapeHtml(r.evidence || '—')}</div>
           ${r.summary ? `<div class="summary">${escapeHtml(r.summary)}</div>` : ''}
           ${r.why ? `<div style="margin-top:10px;color:#6b7280">${escapeHtml(r.why)}</div>` : ''}
+          ${r.type === 'crop' ? buildCropExtraDetailsHTML(r) : ''}
           ${linksHtml}
         </div>
       </div>
@@ -1894,6 +1909,84 @@ function highlightListItem(id){
     els.region.innerHTML = '<option value="">All</option>' + regions.map(r => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join('');
   }
 
+
+  function looksLikeUrl(s){
+    const v = String(s || '').trim();
+    return /^https?:\/\//i.test(v);
+  }
+
+  function extractUrlsFromValue(val){
+    const v = String(val || '').trim();
+    if(!v) return [];
+    const m = v.match(/https?:\/\/[^\s)\]}>"']+/gi);
+    return m ? m.map(x => x.trim()) : [];
+  }
+
+  function harvestLinksFromRaw(raw){
+    if(!raw) return [];
+    const out = [];
+    for(const [k, v] of Object.entries(raw)){
+      const key = String(k || '');
+      const isLikelyLinkField = /(source|sources|reference|references|ref|website|url|link|links)/i.test(key);
+      if(isLikelyLinkField){
+        out.push(...extractUrlsFromValue(v));
+      }
+    }
+    // Also collect any obvious URLs anywhere in the row (helps when the sheet uses unconventional headers)
+    for(const v of Object.values(raw)){
+      out.push(...extractUrlsFromValue(v));
+    }
+    // unique
+    return Array.from(new Set(out));
+  }
+
+  function buildCropExtraDetailsHTML(r){
+    const raw = r && r._raw ? r._raw : null;
+    if(!raw) return '';
+    const hiddenKeys = new Set([
+      'lat','latitude','lon','lng','long','longitude',
+      'date','date (local)','seen','time','date_iso','date iso','iso date',
+      'year','region','location',
+      'title','name','formation','crop circle','case',
+      'summary','description','notes','details',
+      'type','category','shape','pattern',
+      'status','verified','credibility','credibility (1-5)','rating','cred',
+      'sources','source','links','link','url','videos','video','photo','image','images',
+      'slug','highlights','highlight','why','why considered reputable',
+      'weather','weather summary','historical weather','historic weather','weather source','weather data source'
+    ].map(x => x.toLowerCase()));
+
+    const rows = [];
+    for(const [k, v0] of Object.entries(raw)){
+      const kNorm = String(k || '').trim().toLowerCase();
+      if(!kNorm || hiddenKeys.has(kNorm)) continue;
+      const v = String(v0 ?? '').trim();
+      if(!v) continue;
+
+      // Make a nicer label
+      const label = String(k || '').trim().replace(/_/g,' ');
+      // Linkify URLs
+      const urls = extractUrlsFromValue(v);
+      let valueHtml = '';
+      if(urls.length){
+        valueHtml = urls.map((u,i)=>`<a href="${escapeHtml(u)}" target="_blank" rel="noopener">Link ${i+1}</a>`).join(' • ');
+        // If there's non-url text too, include it
+        const nonUrl = v.replace(/https?:\/\/[^\s)\]}>"']+/gi,'').replace(/[,;|]+/g,' ').trim();
+        if(nonUrl) valueHtml = `${escapeHtml(nonUrl)}<div style="margin-top:4px">${valueHtml}</div>`;
+      }else{
+        valueHtml = escapeHtml(v);
+      }
+
+      rows.push(`<div style="margin-top:8px"><span class="k">${escapeHtml(label)}:</span> ${valueHtml}</div>`);
+    }
+
+    if(!rows.length) return '';
+    return `<details style="margin-top:12px">
+      <summary style="cursor:pointer;font-weight:800;color:#111827">More details</summary>
+      <div style="margin-top:8px;font-size:13px;line-height:1.45">${rows.join('')}</div>
+    </details>`;
+  }
+
   // Accept these coordinate headers:
   //  - lat/lon  (preferred)
   //  - Latitude/Longitude
@@ -1905,6 +1998,7 @@ function highlightListItem(id){
     const out = {
       id: `${type || 'ufo'}-${idx}`,
       type: (type || 'ufo'),
+      _raw: r,
 
       // Title fields
       case: (type === 'crop')
@@ -1950,6 +2044,14 @@ function highlightListItem(id){
       lat: Number(latRaw),
       lon: Number(lonRaw)
     };
+
+    // For crop circles, pull any URLs buried in other columns into the sources list
+    if(type === 'crop'){
+      const harvested = harvestLinksFromRaw(r);
+      const existing = Array.from(new Set(parseSources(out.sources)));
+      const merged = Array.from(new Set([...existing, ...harvested]));
+      out.sources = merged.join('\n');
+    }
 
     const fixed = normaliseCoords(out.lat, out.lon);
     out.lat = fixed.lat;
