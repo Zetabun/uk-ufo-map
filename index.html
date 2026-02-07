@@ -776,6 +776,66 @@ select:focus {
   margin-top: 10px;
 }
 
+
+/* --- Help tooltip for Heatmap toggle --- */
+.help-wrap{
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.help-icon{
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+  user-select: none;
+  border: 1px solid rgba(0,122,255,0.35);
+  background: rgba(0,122,255,0.12);
+  color: var(--ios-accent);
+}
+.help-icon:hover{ background: rgba(0,122,255,0.18); }
+.help-icon:focus{
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(0,122,255,0.18);
+}
+.help-bubble{
+  position: absolute;
+  left: 0;
+  top: calc(100% + 10px);
+  width: min(320px, 72vw);
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #111827;
+  border: 1px solid rgba(17,24,39,0.14);
+  box-shadow: 0 16px 40px rgba(0,0,0,0.18);
+  font-size: 12px;
+  line-height: 1.35;
+  z-index: 5;
+  display: none;
+}
+.help-bubble::before{
+  content: "";
+  position: absolute;
+  top: -6px;
+  left: 34px;
+  width: 12px;
+  height: 12px;
+  background: #ffffff;
+  border-left: 1px solid rgba(17,24,39,0.14);
+  border-top: 1px solid rgba(17,24,39,0.14);
+  transform: rotate(45deg);
+}
+.help-bubble.is-open{ display: block; }
+
 </style>
 </head>
 
@@ -903,7 +963,13 @@ select:focus {
 
       <div class="toggle-row">
         <div>
-          <div style="font-weight:650;font-size:13px">Density view</div>
+          <div class="help-wrap">
+  <div style="font-weight:650;font-size:13px">Heatmap</div>
+  <button type="button" class="help-icon" id="heatmapHelpBtn" aria-label="Heatmap info" aria-expanded="false">?</button>
+  <div class="help-bubble" id="heatmapHelpBubble" role="tooltip">
+    Reports with generalised locations such as "London" may cause a cluster on the heatmap. Keep this in mind when viewing the data.
+  </div>
+</div>
           <div class="label">Show sightings as a heatmap (hides markers)</div>
         </div>
         <label class="switch" title="Toggle density heatmap">
@@ -971,6 +1037,35 @@ select:focus {
     toggleFlightPaths: document.getElementById('toggleFlightPaths'),
     toggleDensity: document.getElementById('toggleDensity')
   };
+// Heatmap help tooltip
+const heatmapHelpBtn = document.getElementById('heatmapHelpBtn');
+const heatmapHelpBubble = document.getElementById('heatmapHelpBubble');
+
+function setHeatmapHelpOpen(open){
+  if(!heatmapHelpBtn || !heatmapHelpBubble) return;
+  heatmapHelpBubble.classList.toggle('is-open', !!open);
+  heatmapHelpBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+if(heatmapHelpBtn && heatmapHelpBubble){
+  heatmapHelpBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const isOpen = heatmapHelpBubble.classList.contains('is-open');
+    setHeatmapHelpOpen(!isOpen);
+  });
+
+  heatmapHelpBubble.addEventListener('click', (e) => {
+    // Allow selecting/copying text without closing
+    e.stopPropagation();
+  });
+
+  document.addEventListener('click', () => setHeatmapHelpOpen(false));
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'Escape') setHeatmapHelpOpen(false);
+  });
+}
+
 
   // Map
   const map = L.map('map', { zoomControl: true }).setView([54.5, -3.0], 6);
