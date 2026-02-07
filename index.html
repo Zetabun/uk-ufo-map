@@ -930,6 +930,17 @@ select:focus {
 
       <div class="toggle-row">
         <div>
+          <div style="font-weight:650;font-size:13px">Crop circles</div>
+          <div class="label">Show crop circle reports</div>
+        </div>
+        <label class="switch" title="Toggle crop circles">
+          <input type="checkbox" id="toggleCrop" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <div>
           <div style="font-weight:650;font-size:13px">Airports</div>
           <div class="label">Show major UK airports</div>
         </div>
@@ -990,20 +1001,7 @@ select:focus {
           <div class="hint" id="resultsHint">Tap an item to zoom and open its popup.</div>
         </div>
       </div>
-      
-
-      <div class="toggle-row">
-        <div>
-          <div style="font-weight:650;font-size:13px">Crop circles</div>
-          <div class="label">Show crop circles</div>
-        </div>
-        <label class="switch" title="Toggle crop circles">
-          <input type="checkbox" id="toggleCropCircles" checked>
-          <span class="slider"></span>
-        </label>
-      </div>
-
-<div style="height:8px"></div>
+      <div style="height:8px"></div>
       <div id="list"></div>
     </div>
 
@@ -1030,9 +1028,12 @@ select:focus {
   // Your published Google Sheets CSV URL (Publish to the web → CSV):
   const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ7sia344gHoW613Mc1jQSYR4w_rMv2CcDtc-v1eJrbggnWrdu0FpgRIMMtwCOXULgmoU7UEUHNK-Ib/pub?output=csv';
 
-  // Crop circles CSV (published Google Sheet)
+  // Crop circles (published sheet). Same format as above (Publish to the web → CSV).
+  // Provided by you:
+  // - Edit URL: https://docs.google.com/spreadsheets/d/1lmqNopiw2ReeESFSdKvvzmkxLxLmpzKezMr7Wbpvs-E/edit?gid=907879389
+  // - Published URL: https://docs.google.com/spreadsheets/d/e/2PACX-1vQIfJZFzjhP3ql51I1Oj7e6egKr7DnMyEX64tUVmFYxIuTYDVMnm_g8dv9JAx49PdDhhMGgTzhJHgI1/pubhtml
+  // Note: for published Google Sheets, swapping `pubhtml` -> `pub?output=csv` gives a CSV feed.
   const CROP_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQIfJZFzjhP3ql51I1Oj7e6egKr7DnMyEX64tUVmFYxIuTYDVMnm_g8dv9JAx49PdDhhMGgTzhJHgI1/pub?output=csv';
-
 
   const els = {
     statusDot: document.getElementById('statusDot'),
@@ -1054,7 +1055,8 @@ select:focus {
     toggleBases: document.getElementById('toggleBases'),
     toggleFlightPaths: document.getElementById('toggleFlightPaths'),
     toggleFlightHeat: document.getElementById('toggleFlightHeat'),
-    toggleDensity: document.getElementById('toggleDensity')
+    toggleDensity: document.getElementById('toggleDensity'),
+    toggleCrop: document.getElementById('toggleCrop')
   };
 // Heatmap help tooltip
 const heatmapHelpBtn = document.getElementById('heatmapHelpBtn');
@@ -1187,28 +1189,10 @@ if(heatmapHelpBtn && heatmapHelpBubble){
     } else {
       if(map.hasLayer(heatLayer)) map.removeLayer(heatLayer);
       if(!map.hasLayer(cluster)) map.addLayer(cluster);
-
-  // Crop circles (second dataset)
-  const cropCluster = L.markerClusterGroup({
-    showCoverageOnHover: false,
-    spiderfyOnMaxZoom: true,
-    disableClusteringAtZoom: 12,
-    maxClusterRadius: 40
-  });
-  let cropRecords = [];
     }
   }
 
   map.addLayer(cluster);
-
-  // Crop circles (second dataset)
-  const cropCluster = L.markerClusterGroup({
-    showCoverageOnHover: false,
-    spiderfyOnMaxZoom: true,
-    disableClusteringAtZoom: 12,
-    maxClusterRadius: 40
-  });
-  let cropRecords = [];
 
   // Optional reference layers
   // Optional reference layers (clustered so they don't overwhelm the map)
@@ -1579,16 +1563,17 @@ function escapeHtml(str){
 
     const tags = `
       <div class="tags">
-        <span class="tag">${escapeHtml(r.region || '—')}</span>
-        <span class="tag">Credibility: ${escapeHtml(String(r.cred || '—'))}</span>
+        <span class="tag">${r.type === 'crop' ? 'Crop circle' : 'UFO sighting'}</span>
+        ${r.region ? `<span class="tag">${escapeHtml(r.region)}</span>` : ''}
+        ${Number.isFinite(Number(r.cred)) ? `<span class="tag">Credibility: ${escapeHtml(String(r.cred))}</span>` : ''}
         ${r.status ? `<span class="tag">${escapeHtml(r.status)}</span>` : ''}
-        ${(() => {
+        ${r.type !== 'crop' ? (() => {
           const raw = String(r.encounter || '').trim().toLowerCase();
           const isYes = ['yes','y','true','1'].includes(raw);
           const enc = raw ? (isYes ? 'Yes' : 'No') : 'No';
           return `<span class="tag">Encounter: ${enc}</span>`;
-        })()}
-      ${readMoreTag}
+        })() : ''}
+        ${readMoreTag}
       </div>`;
 
     const weatherBlock = (r.weather && String(r.weather).trim())
@@ -1607,8 +1592,8 @@ function escapeHtml(str){
         ${weatherBlock}
         <div style="font-size:13px;line-height:1.45">
           <div><span class="k">Location:</span> ${escapeHtml(r.location || '—')}</div>
-          <div style="margin-top:8px"><span class="k">Witness:</span> ${escapeHtml(r.witness || '—')}</div>
-          <div style="margin-top:8px"><span class="k">Evidence:</span> ${escapeHtml(r.evidence || '—')}</div>
+          ${r.type !== 'crop' ? `<div style="margin-top:8px"><span class="k">Witness:</span> ${escapeHtml(r.witness || '—')}</div>` : ''}
+          <div style="margin-top:8px"><span class="k">${r.type === 'crop' ? 'Type' : 'Evidence'}:</span> ${escapeHtml(r.evidence || '—')}</div>
           ${r.summary ? `<div class="summary">${escapeHtml(r.summary)}</div>` : ''}
           ${r.why ? `<div style="margin-top:10px;color:#6b7280">${escapeHtml(r.why)}</div>` : ''}
           ${linksHtml}
@@ -1617,15 +1602,18 @@ function escapeHtml(str){
     `;
   }
 
-  function markerColorByCred(cred){
-    const c = Number(cred || 0);
+  function markerColorByRecord(r){
+    // Crop circles get a distinct colour so they can be spotted at a glance.
+    if(r && r.type === 'crop') return '#a78bfa';
+
+    const c = Number((r && r.cred) || 0);
     if(c >= 4) return '#22c55e';
     if(c >= 3) return '#60a5fa';
     return '#f59e0b';
   }
 
-  function makeCircleMarker(lat, lon, cred){
-    const color = markerColorByCred(cred);
+  function makeCircleMarker(lat, lon, r){
+    const color = markerColorByRecord(r);
     return L.circleMarker([lat, lon], {
       radius: 7,
       weight: 2,
@@ -1648,6 +1636,8 @@ function escapeHtml(str){
     const y = r.year || 0;
     const enc = (els.encounter && els.encounter.value) ? els.encounter.value : '';
 
+    if(els.toggleCrop && !els.toggleCrop.checked && r.type === 'crop') return false;
+
     if(q){
       const hay = [r.case,r.location,r.region,r.summary,r.witness,r.evidence,r.status,r.weather].join(' ').toLowerCase();
       if(!hay.includes(q)) return false;
@@ -1656,7 +1646,7 @@ function escapeHtml(str){
     if((r.cred || 0) < minCred) return false;
     if(y && (y < currentYearMin || y > currentYearMax)) return false;
 
-    if(enc){
+    if(enc && r.type !== 'crop'){
       const raw = String(r.encounter || '').trim().toLowerCase();
       const isYes = ['yes','y','true','1'].includes(raw);
       const rowEnc = raw ? (isYes ? 'yes' : 'no') : 'no';
@@ -1682,7 +1672,7 @@ function escapeHtml(str){
         // Leaflet.heat accepts [lat, lng, intensity]
         heatLayer && heatLayer.addLatLng([r.lat, r.lon, w]);
       } else {
-        const m = makeCircleMarker(r.lat, r.lon, r.cred);
+        const m = makeCircleMarker(r.lat, r.lon, r);
         m.bindPopup(makePopupHTML(r), { maxWidth: 420 });
         m.on('click', () => highlightListItem(r.id));
         cluster.addLayer(m);
@@ -1841,25 +1831,36 @@ function highlightListItem(id){
   //  - lat/lon  (preferred)
   //  - Latitude/Longitude
   //  - Lat/Long  (your current sheet)
-  function normaliseRow(r, idx){
+  function normaliseRow(r, idx, type){
     const latRaw = getField(r, ['lat','latitude','Lat','LAT']);
     const lonRaw = getField(r, ['lon','longitude','Long','LONG','lng','Lng']);
 
     const out = {
-      id: idx,
-      case: getField(r, ['Case','case']),
-      date: getField(r, ['Date','date']),
+      id: `${type || 'ufo'}-${idx}`,
+      type: (type || 'ufo'),
+
+      // Title fields
+      case: (type === 'crop')
+        ? (getField(r, ['Title','title','Name','name','Formation','formation','Crop Circle','crop circle','Case','case']) || 'Crop circle')
+        : (getField(r, ['Case','case']) || 'UFO sighting'),
+
+      // Date/time fields
+      date: getField(r, ['Date','date','Date (local)','date (local)','Seen','seen']),
       time: getField(r, ['Time','time']),
-      date_iso: getField(r, ['Date_ISO','date_iso','Date ISO','Date (ISO)','ISO Date']),
+      date_iso: getField(r, ['Date_ISO','date_iso','Date ISO','Date (ISO)','ISO Date','Date ISO (UTC)','date iso']),
+
       location: getField(r, ['Location','location']),
       region: getField(r, ['Region','region']),
-      witness: getField(r, ['Witness profile','Witness','witness']),
-      evidence: getField(r, ['Evidence','evidence']),
-      summary: getField(r, ['Summary','summary']),
-      status: getField(r, ['Status','status']),
+      witness: getField(r, ['Witness profile','Witness','witness','Witnesses','witnesses']),
+      evidence: (type === 'crop')
+        ? (getField(r, ['Type','type','Category','category','Shape','shape','Pattern','pattern']) || '')
+        : getField(r, ['Evidence','evidence']),
+      summary: getField(r, ['Summary','summary','Description','description','Notes','notes','Details','details']),
+      status: getField(r, ['Status','status','Verified','verified']),
       highlight: getField(r, ['Highlights','Highlight','highlights','highlight']),
       slug: getField(r, ['Slug','slug']),
-      cred: Number(getField(r, ['Credibility (1-5)','Credibility','credibility']) || 0),
+      // Default credibility for crop circles if column missing.
+      cred: Number(getField(r, ['Credibility (1-5)','Credibility','credibility','Rating','rating','Cred','cred']) || (type === 'crop' ? 3 : 0)),
       why: getField(r, ['Why considered reputable','Why','why']),
       // Weather columns (support your new naming variations)
      weather: (() => {
@@ -1871,10 +1872,14 @@ function highlightListItem(id){
 })(),
 
       weather_source: getField(r, ['Weather source','weather source','Weather Source','Weather data source','Weather Data Source']),
-      sources: getField(r, ['Sources','sources']),
-      videos: getField(r, ['Videos','videos','Video','video','Video links','video links']),
-      encounter: getField(r, ['Encounter','encounter']),
-      year: safeYear(getField(r, ['Date_ISO','date_iso','Date','date'])),
+      // Link fields (crop circles often have photo/source links rather than videos)
+      sources: getField(r, ['Sources','sources','Source','source','URL','url','Link','link','Links','links']),
+      videos: getField(r, ['Videos','videos','Video','video','Video links','video links','Photo','photo','Image','image','Images','images','Photo link','photo link','Image link','image link']),
+
+      // Only applies to UFO sightings. Crop circles ignore this filter.
+      encounter: (type === 'crop') ? '' : getField(r, ['Encounter','encounter']),
+
+      year: safeYear(getField(r, ['Date_ISO','date_iso','Date','date','Year','year'])),
       lat: Number(latRaw),
       lon: Number(lonRaw)
     };
@@ -1888,7 +1893,7 @@ function highlightListItem(id){
 
   // ==== Optional fallback geocoding (only if lat/lon missing) ====
   // Uses OpenStreetMap Nominatim. Please be considerate (rate-limited + cached).
-  const GEO_CACHE_KEY = 'ufo_geo_cache_v1';
+  const GEO_CACHE_KEY = 'uk_anomaly_geo_cache_v2';
   const GEO_DELAY_MS = 1100; // ~1 req/sec
   const GEO_EMAIL = ''; // optional
 
@@ -1978,168 +1983,59 @@ function highlightListItem(id){
     }
   }
 
-  async 
-  // ---- Crop circles helpers ----
-  function parseSizeMeters(val){
-    if(val == null) return null;
-    const s = String(val).trim();
-    if(!s) return null;
-    const m = s.match(/([\d.]+)\s*(km|m|metres|meters|ft|feet)?/i);
-    if(!m) return null;
-    const n = Number(m[1]);
-    if(!Number.isFinite(n)) return null;
-    const unit = (m[2] || 'm').toLowerCase();
-    if(unit === 'km') return n * 1000;
-    if(unit === 'ft' || unit === 'feet') return n * 0.3048;
-    return n;
-  }
-
-  function cropMarkerRadius(sizeMeters){
-    const sm = Number(sizeMeters);
-    if(!Number.isFinite(sm) || sm <= 0) return 7;
-    const clamped = Math.max(10, Math.min(300, sm));
-    return 6 + (clamped - 10) * (8 / (300 - 10));
-  }
-
-  function makeCropMarker(lat, lon, sizeMeters){
-    const r = cropMarkerRadius(sizeMeters);
-    return L.circleMarker([lat, lon], {
-      radius: r,
-      weight: 2,
-      color: '#a855f7',
-      fillColor: '#a855f7',
-      fillOpacity: 0.18
-    });
-  }
-
-  function getFieldCI(row, names){
-    for(const n of names){
-      if(row[n] != null && String(row[n]).trim() !== '') return row[n];
-      // try case-insensitive match
-      const key = Object.keys(row).find(k => k.toLowerCase() === String(n).toLowerCase());
-      if(key && row[key] != null && String(row[key]).trim() !== '') return row[key];
-    }
-    return '';
-  }
-
-  function normaliseCropRow(r, idx){
-    const latRaw = getFieldCI(r, ['lat','latitude','Lat','LAT','Latitude']);
-    const lonRaw = getFieldCI(r, ['lon','longitude','Long','LONG','lng','Lng','Longitude']);
-    const out = {
-      id: idx,
-      name: getFieldCI(r, ['Formation','Name','Title','name','title']) || 'Crop circle',
-      date: getFieldCI(r, ['Date first reported','Date','date']),
-      location: getFieldCI(r, ['Nearest place / landmark','Location','location']),
-      region: getFieldCI(r, ['County','Region','region']),
-      size: getFieldCI(r, ['Reported size (verbatim-ish)','Size','size','Diameter','diameter']),
-      lat: Number(latRaw),
-      lon: Number(lonRaw),
-    };
-    // Allow coordinate swap if someone typed them backwards
-    const fixed = normaliseCoords(out.lat, out.lon);
-    out.lat = fixed.lat;
-    out.lon = fixed.lon;
-    out.size_m = parseSizeMeters(out.size);
-    return out;
-  }
-
-  function cropPopupHTML(r){
-    const loc = r.location ? escapeHtml(String(r.location)) : '';
-    const date = r.date ? escapeHtml(String(r.date)) : '';
-    const size = r.size ? `<div class="pill">Size: ${
-      escapeHtml(String(r.size))
-    }</div>` : '';
-    const region = r.region ? `<div class="pill">${escapeHtml(String(r.region))}</div>` : '';
-    return `
-      <div class="popup">
-        <div class="head">
-          <div>
-            <div class="case">${escapeHtml(String(r.name || 'Crop circle'))}</div>
-            <div class="meta">${loc}${date ? ' • ' + date : ''}</div>
-          </div>
-        </div>
-        <div class="body">
-          <div style="display:flex;gap:8px;flex-wrap:wrap">${size}${region}</div>
-        </div>
-      </div>
-    `;
-  }
-
-  function renderCropCircles(){
-    cropCluster.clearLayers();
-    if(!els.toggleCropCircles || !els.toggleCropCircles.checked) return;
-    for(const r of cropRecords){
-      if(!Number.isFinite(r.lat) || !Number.isFinite(r.lon)) continue;
-      const m = makeCropMarker(r.lat, r.lon, r.size_m);
-      m.bindPopup(cropPopupHTML(r), { maxWidth: 420 });
-      cropCluster.addLayer(m);
-    }
-  }
-
-  function loadCropCircles(){
-    if(!CROP_CSV_URL) return Promise.resolve();
-    const url = CROP_CSV_URL + (CROP_CSV_URL.includes('?') ? '&' : '?') + 't=' + Date.now();
+  function parseCsvToRows(csvUrl){
+    const url = csvUrl + (csvUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
     return new Promise((resolve, reject) => {
       Papa.parse(url, {
         download: true,
         header: true,
         skipEmptyLines: true,
-        complete: (results) => {
-          const raw = Array.isArray(results.data) ? results.data : [];
-          cropRecords = raw.map((row, idx) => normaliseCropRow(row, idx));
-          // show layer if toggle on
-          syncLayerToggles();
-          renderCropCircles();
-          resolve();
-        },
+        complete: (results) => resolve(Array.isArray(results.data) ? results.data : []),
         error: (err) => reject(err)
       });
     });
   }
 
-function loadFromGoogleSheets(){
-    setStatus('warn','Loading cases…');
-    setProgress(0, 1);
+  async function loadAllDatasets(){
+    setStatus('warn','Loading data…');
 
-    const url = SHEET_CSV_URL + (SHEET_CSV_URL.includes('?') ? '&' : '?') + 't=' + Date.now();
+    // Two datasets: UFO sightings + crop circles
+    setProgress(0, 2);
 
-    return new Promise((resolve, reject) => {
-      Papa.parse(url, {
-        download: true,
-        header: true,
-        skipEmptyLines: true,
-        complete: (results) => {
-          const raw = Array.isArray(results.data) ? results.data : [];
-          records = raw.map((row, idx) => normaliseRow(row, idx)).filter(r => (r.case || r.location || r.summary));
-          els.kpiTotal.textContent = records.length;
+    const [ufoRaw, cropRaw] = await Promise.all([
+      parseCsvToRows(SHEET_CSV_URL).finally(() => setProgress(1, 2)),
+      parseCsvToRows(CROP_CSV_URL).finally(() => setProgress(2, 2))
+    ]);
 
-          const years = records.map(r => r.year).filter(Boolean);
-          const minY = years.length ? Math.min(...years) : 1950;
-          const maxY = years.length ? Math.max(...years) : new Date().getFullYear();
-          initYearSlider(minY, maxY);
+    const ufo = (ufoRaw || []).map((row, idx) => normaliseRow(row, idx, 'ufo'))
+      .filter(r => (r.case || r.location || r.summary));
+    const crop = (cropRaw || []).map((row, idx) => normaliseRow(row, idx, 'crop'))
+      .filter(r => (r.case || r.location || r.summary));
 
-          populateRegionOptions();
+    records = [...ufo, ...crop];
+    els.kpiTotal.textContent = records.length;
 
-          // Default progress fill
-          setProgress(1, 1);
+    // Year slider should apply to BOTH datasets, so take the range across everything.
+    const years = records.map(r => r.year).filter(Boolean);
+    const minY = years.length ? Math.min(...years) : 1950;
+    const maxY = years.length ? Math.max(...years) : new Date().getFullYear();
+    initYearSlider(minY, maxY);
 
-          const missingCoords = records.filter(r => !Number.isFinite(r.lat) || !Number.isFinite(r.lon)).length;
-          if(missingCoords){
-            setStatus('warn', `Loaded ${records.length} rows. ${missingCoords} missing lat/lon (won't plot) — using Location geocoding as a fallback.`);
-          } else {
-            setStatus('ok', `Loaded ${records.length} rows. Ready.`);
-          }
+    populateRegionOptions();
 
-          render();
-          fitToMarkers();
-          fixMapSizeSoon();
+    const missingCoords = records.filter(r => !Number.isFinite(r.lat) || !Number.isFinite(r.lon)).length;
+    if(missingCoords){
+      setStatus('warn', `Loaded ${records.length} rows (UFO: ${ufo.length}, crop circles: ${crop.length}). ${missingCoords} missing lat/lon (won't plot) — using Location geocoding as a fallback.`);
+    } else {
+      setStatus('ok', `Loaded ${records.length} rows (UFO: ${ufo.length}, crop circles: ${crop.length}). Ready.`);
+    }
 
-          // Fallback: geocode rows missing lat/lon (rate-limited + cached)
-          geocodeMissingCoords().finally(() => resolve());
-        },
-        error: (err) => reject(err)
-      });
-    });
+    render();
+    fitToMarkers();
+    fixMapSizeSoon();
+
+    // Fallback: geocode rows missing lat/lon (rate-limited + cached)
+    await geocodeMissingCoords();
   }
 
   ['input','change'].forEach(evt => {
@@ -2155,6 +2051,7 @@ function loadFromGoogleSheets(){
     els.region.value = '';
     els.minCred.value = '1';
     if(els.encounter) els.encounter.value = '';
+    if(els.toggleCrop) els.toggleCrop.checked = true;
     const slider = els.yearSlider.noUiSlider;
     if(slider){
       const r = slider.options.range;
@@ -2167,14 +2064,6 @@ function loadFromGoogleSheets(){
 
   // Layer toggles (airports / bases)
   function syncLayerToggles(){
-    if(els.toggleCropCircles){
-      if(els.toggleCropCircles.checked){
-        if(!map.hasLayer(cropCluster)) map.addLayer(cropCluster);
-      } else {
-        if(map.hasLayer(cropCluster)) map.removeLayer(cropCluster);
-      }
-    }
-
     if(els.toggleAirports){
       if(els.toggleAirports.checked){
         airportsLayer.addTo(map);
@@ -2237,10 +2126,10 @@ function loadFromGoogleSheets(){
   if(els.toggleFlightPaths) els.toggleFlightPaths.addEventListener('change', syncLayerToggles);
   if(els.toggleFlightHeat) els.toggleFlightHeat.addEventListener('change', syncLayerToggles);
   if(els.toggleDensity) els.toggleDensity.addEventListener('change', () => { render(); });
-  if(els.toggleCropCircles) els.toggleCropCircles.addEventListener('change', () => { syncLayerToggles(); renderCropCircles(); });
+  if(els.toggleCrop) els.toggleCrop.addEventListener('change', () => { render(); });
 
 
-  loadFromGoogleSheets().then(() => loadCropCircles()).catch(err => {
+  loadAllDatasets().catch(err => {
     console.error(err);
     setStatus('bad', (err && err.message) ? err.message : String(err));
   });
