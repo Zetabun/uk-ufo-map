@@ -386,18 +386,6 @@ select:focus {
 }
 
 /* Cluster bubbles for POIs */
-
-    /* Crop circle markers */
-    .crop-marker{
-      width:22px;height:22px;border-radius:999px;
-      border:2px solid rgba(34,197,94,.9);
-      background:rgba(34,197,94,.25);
-      box-shadow:0 0 0 2px rgba(0,0,0,.25);
-      display:flex;align-items:center;justify-content:center;
-      font-weight:900;font-size:12px;line-height:1;
-      color:#bbf7d0;
-    }
-    .crop-marker.small{width:18px;height:18px;font-size:11px}
 .poi-cluster{
   width: 34px;
   height: 34px;
@@ -412,12 +400,6 @@ select:focus {
 }
 .poi-cluster.airports{ background: rgba(34,197,94,.9); }
 .poi-cluster.bases{ background: rgba(239,68,68,.9); }
-    .poi-cluster.crops{
-      background: rgba(34,197,94,.20);
-      border: 1px solid rgba(34,197,94,.5);
-      color: #bbf7d0;
-    }
-
 
 
 /* --- POI popup (airports / bases) --- */
@@ -970,18 +952,6 @@ select:focus {
 
       <div class="toggle-row">
         <div>
-          <div style="font-weight:650;font-size:13px">Crop circles</div>
-          <div class="label">Show major UK crop circle formations</div>
-        </div>
-        <label class="switch" title="Toggle crop circles">
-          <input type="checkbox" id="toggleCrops" checked>
-          <span class="slider"></span>
-        </label>
-      </div>
-
-
-      <div class="toggle-row">
-        <div>
           <div class="help-wrap">
   <div style="font-weight:650;font-size:13px">Heatmap</div>
   <button type="button" class="help-icon" id="heatmapHelpBtn" aria-label="Heatmap info" aria-expanded="false">?</button>
@@ -1020,7 +990,20 @@ select:focus {
           <div class="hint" id="resultsHint">Tap an item to zoom and open its popup.</div>
         </div>
       </div>
-      <div style="height:8px"></div>
+      
+
+      <div class="toggle-row">
+        <div>
+          <div style="font-weight:650;font-size:13px">Crop circles</div>
+          <div class="label">Show crop circles</div>
+        </div>
+        <label class="switch" title="Toggle crop circles">
+          <input type="checkbox" id="toggleCropCircles" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+<div style="height:8px"></div>
       <div id="list"></div>
     </div>
 
@@ -1046,8 +1029,9 @@ select:focus {
   // ==== CONFIG ====
   // Your published Google Sheets CSV URL (Publish to the web → CSV):
   const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ7sia344gHoW613Mc1jQSYR4w_rMv2CcDtc-v1eJrbggnWrdu0FpgRIMMtwCOXULgmoU7UEUHNK-Ib/pub?output=csv';
-  // Crop circles sheet (published to web)
-  const CROP_SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQIfJZFzjhP3ql51I1Oj7e6egKr7DnMyEX64tUVmFYxIuTYDVMnm_g8dv9JAx49PdDhhMGgTzhJHgI1/pub?output=csv';
+
+  // Crop circles CSV (published Google Sheet)
+  const CROP_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQIfJZFzjhP3ql51I1Oj7e6egKr7DnMyEX64tUVmFYxIuTYDVMnm_g8dv9JAx49PdDhhMGgTzhJHgI1/pub?output=csv';
 
 
   const els = {
@@ -1068,7 +1052,6 @@ select:focus {
     encounter: document.getElementById('encounter'),
     toggleAirports: document.getElementById('toggleAirports'),
     toggleBases: document.getElementById('toggleBases'),
-    toggleCrops: document.getElementById('toggleCrops'),
     toggleFlightPaths: document.getElementById('toggleFlightPaths'),
     toggleFlightHeat: document.getElementById('toggleFlightHeat'),
     toggleDensity: document.getElementById('toggleDensity')
@@ -1189,19 +1172,6 @@ if(heatmapHelpBtn && heatmapHelpBubble){
 
   const cluster = L.markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 50 });
   const heatLayer = (L.heatLayer ? L.heatLayer([], { radius: 18, blur: 22, maxZoom: 12, minOpacity: 0.25 }) : null);
-
-  // Crop circles layer (separate from sightings so it can remain visible in Heatmap mode)
-  const cropCluster = L.markerClusterGroup({
-    showCoverageOnHover: false,
-    spiderfyOnMaxZoom: true,
-    disableClusteringAtZoom: 11,
-    maxClusterRadius: 45,
-    iconCreateFunction: (cluster) => L.divIcon({
-      html: `<div class="poi-cluster crops">${cluster.getChildCount()}</div>`,
-      className: '',
-      iconSize: [34,34]
-    })
-  });
   let lastShownLatLngs = [];
 
   function isDensityOn(){
@@ -1217,10 +1187,28 @@ if(heatmapHelpBtn && heatmapHelpBubble){
     } else {
       if(map.hasLayer(heatLayer)) map.removeLayer(heatLayer);
       if(!map.hasLayer(cluster)) map.addLayer(cluster);
+
+  // Crop circles (second dataset)
+  const cropCluster = L.markerClusterGroup({
+    showCoverageOnHover: false,
+    spiderfyOnMaxZoom: true,
+    disableClusteringAtZoom: 12,
+    maxClusterRadius: 40
+  });
+  let cropRecords = [];
     }
   }
 
   map.addLayer(cluster);
+
+  // Crop circles (second dataset)
+  const cropCluster = L.markerClusterGroup({
+    showCoverageOnHover: false,
+    spiderfyOnMaxZoom: true,
+    disableClusteringAtZoom: 12,
+    maxClusterRadius: 40
+  });
+  let cropRecords = [];
 
   // Optional reference layers
   // Optional reference layers (clustered so they don't overwhelm the map)
@@ -1990,7 +1978,126 @@ function highlightListItem(id){
     }
   }
 
-  async function loadFromGoogleSheets(){
+  async 
+  // ---- Crop circles helpers ----
+  function parseSizeMeters(val){
+    if(val == null) return null;
+    const s = String(val).trim();
+    if(!s) return null;
+    const m = s.match(/([\d.]+)\s*(km|m|metres|meters|ft|feet)?/i);
+    if(!m) return null;
+    const n = Number(m[1]);
+    if(!Number.isFinite(n)) return null;
+    const unit = (m[2] || 'm').toLowerCase();
+    if(unit === 'km') return n * 1000;
+    if(unit === 'ft' || unit === 'feet') return n * 0.3048;
+    return n;
+  }
+
+  function cropMarkerRadius(sizeMeters){
+    const sm = Number(sizeMeters);
+    if(!Number.isFinite(sm) || sm <= 0) return 7;
+    const clamped = Math.max(10, Math.min(300, sm));
+    return 6 + (clamped - 10) * (8 / (300 - 10));
+  }
+
+  function makeCropMarker(lat, lon, sizeMeters){
+    const r = cropMarkerRadius(sizeMeters);
+    return L.circleMarker([lat, lon], {
+      radius: r,
+      weight: 2,
+      color: '#a855f7',
+      fillColor: '#a855f7',
+      fillOpacity: 0.18
+    });
+  }
+
+  function getFieldCI(row, names){
+    for(const n of names){
+      if(row[n] != null && String(row[n]).trim() !== '') return row[n];
+      // try case-insensitive match
+      const key = Object.keys(row).find(k => k.toLowerCase() === String(n).toLowerCase());
+      if(key && row[key] != null && String(row[key]).trim() !== '') return row[key];
+    }
+    return '';
+  }
+
+  function normaliseCropRow(r, idx){
+    const latRaw = getFieldCI(r, ['lat','latitude','Lat','LAT','Latitude']);
+    const lonRaw = getFieldCI(r, ['lon','longitude','Long','LONG','lng','Lng','Longitude']);
+    const out = {
+      id: idx,
+      name: getFieldCI(r, ['Formation','Name','Title','name','title']) || 'Crop circle',
+      date: getFieldCI(r, ['Date first reported','Date','date']),
+      location: getFieldCI(r, ['Nearest place / landmark','Location','location']),
+      region: getFieldCI(r, ['County','Region','region']),
+      size: getFieldCI(r, ['Reported size (verbatim-ish)','Size','size','Diameter','diameter']),
+      lat: Number(latRaw),
+      lon: Number(lonRaw),
+    };
+    // Allow coordinate swap if someone typed them backwards
+    const fixed = normaliseCoords(out.lat, out.lon);
+    out.lat = fixed.lat;
+    out.lon = fixed.lon;
+    out.size_m = parseSizeMeters(out.size);
+    return out;
+  }
+
+  function cropPopupHTML(r){
+    const loc = r.location ? escapeHtml(String(r.location)) : '';
+    const date = r.date ? escapeHtml(String(r.date)) : '';
+    const size = r.size ? `<div class="pill">Size: ${
+      escapeHtml(String(r.size))
+    }</div>` : '';
+    const region = r.region ? `<div class="pill">${escapeHtml(String(r.region))}</div>` : '';
+    return `
+      <div class="popup">
+        <div class="head">
+          <div>
+            <div class="case">${escapeHtml(String(r.name || 'Crop circle'))}</div>
+            <div class="meta">${loc}${date ? ' • ' + date : ''}</div>
+          </div>
+        </div>
+        <div class="body">
+          <div style="display:flex;gap:8px;flex-wrap:wrap">${size}${region}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderCropCircles(){
+    cropCluster.clearLayers();
+    if(!els.toggleCropCircles || !els.toggleCropCircles.checked) return;
+    for(const r of cropRecords){
+      if(!Number.isFinite(r.lat) || !Number.isFinite(r.lon)) continue;
+      const m = makeCropMarker(r.lat, r.lon, r.size_m);
+      m.bindPopup(cropPopupHTML(r), { maxWidth: 420 });
+      cropCluster.addLayer(m);
+    }
+  }
+
+  function loadCropCircles(){
+    if(!CROP_CSV_URL) return Promise.resolve();
+    const url = CROP_CSV_URL + (CROP_CSV_URL.includes('?') ? '&' : '?') + 't=' + Date.now();
+    return new Promise((resolve, reject) => {
+      Papa.parse(url, {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+          const raw = Array.isArray(results.data) ? results.data : [];
+          cropRecords = raw.map((row, idx) => normaliseCropRow(row, idx));
+          // show layer if toggle on
+          syncLayerToggles();
+          renderCropCircles();
+          resolve();
+        },
+        error: (err) => reject(err)
+      });
+    });
+  }
+
+function loadFromGoogleSheets(){
     setStatus('warn','Loading cases…');
     setProgress(0, 1);
 
@@ -2060,6 +2167,14 @@ function highlightListItem(id){
 
   // Layer toggles (airports / bases)
   function syncLayerToggles(){
+    if(els.toggleCropCircles){
+      if(els.toggleCropCircles.checked){
+        if(!map.hasLayer(cropCluster)) map.addLayer(cropCluster);
+      } else {
+        if(map.hasLayer(cropCluster)) map.removeLayer(cropCluster);
+      }
+    }
+
     if(els.toggleAirports){
       if(els.toggleAirports.checked){
         airportsLayer.addTo(map);
@@ -2075,14 +2190,6 @@ function highlightListItem(id){
       } else {
         map.removeLayer(basesLayer);
       }
-    if(els.toggleCrops){
-      if(els.toggleCrops.checked){
-        cropCluster.addTo(map);
-      } else {
-        map.removeLayer(cropCluster);
-      }
-    }
-
     }
     if(els.toggleFlightPaths){
       if(els.toggleFlightPaths.checked){
@@ -2127,20 +2234,13 @@ function highlightListItem(id){
 
   if(els.toggleAirports) els.toggleAirports.addEventListener('change', syncLayerToggles);
   if(els.toggleBases) els.toggleBases.addEventListener('change', syncLayerToggles);
-  if(els.toggleCrops) els.toggleCrops.addEventListener('change', syncLayerToggles);
   if(els.toggleFlightPaths) els.toggleFlightPaths.addEventListener('change', syncLayerToggles);
   if(els.toggleFlightHeat) els.toggleFlightHeat.addEventListener('change', syncLayerToggles);
   if(els.toggleDensity) els.toggleDensity.addEventListener('change', () => { render(); });
+  if(els.toggleCropCircles) els.toggleCropCircles.addEventListener('change', () => { syncLayerToggles(); renderCropCircles(); });
 
 
-    // Apply initial layer toggles
-  syncLayerToggles();
-
-  loadCropCircles().catch(err => {
-    console.warn('Crop circles failed to load:', err);
-  });
-
-loadFromGoogleSheets().catch(err => {
+  loadFromGoogleSheets().then(() => loadCropCircles()).catch(err => {
     console.error(err);
     setStatus('bad', (err && err.message) ? err.message : String(err));
   });
