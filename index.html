@@ -386,6 +386,18 @@ select:focus {
 }
 
 /* Cluster bubbles for POIs */
+
+    /* Crop circle markers */
+    .crop-marker{
+      width:22px;height:22px;border-radius:999px;
+      border:2px solid rgba(34,197,94,.9);
+      background:rgba(34,197,94,.25);
+      box-shadow:0 0 0 2px rgba(0,0,0,.25);
+      display:flex;align-items:center;justify-content:center;
+      font-weight:900;font-size:12px;line-height:1;
+      color:#bbf7d0;
+    }
+    .crop-marker.small{width:18px;height:18px;font-size:11px}
 .poi-cluster{
   width: 34px;
   height: 34px;
@@ -400,6 +412,12 @@ select:focus {
 }
 .poi-cluster.airports{ background: rgba(34,197,94,.9); }
 .poi-cluster.bases{ background: rgba(239,68,68,.9); }
+    .poi-cluster.crops{
+      background: rgba(34,197,94,.20);
+      border: 1px solid rgba(34,197,94,.5);
+      color: #bbf7d0;
+    }
+
 
 
 /* --- POI popup (airports / bases) --- */
@@ -952,6 +970,18 @@ select:focus {
 
       <div class="toggle-row">
         <div>
+          <div style="font-weight:650;font-size:13px">Crop circles</div>
+          <div class="label">Show major UK crop circle formations</div>
+        </div>
+        <label class="switch" title="Toggle crop circles">
+          <input type="checkbox" id="toggleCrops" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+
+      <div class="toggle-row">
+        <div>
           <div class="help-wrap">
   <div style="font-weight:650;font-size:13px">Heatmap</div>
   <button type="button" class="help-icon" id="heatmapHelpBtn" aria-label="Heatmap info" aria-expanded="false">?</button>
@@ -1016,6 +1046,9 @@ select:focus {
   // ==== CONFIG ====
   // Your published Google Sheets CSV URL (Publish to the web → CSV):
   const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ7sia344gHoW613Mc1jQSYR4w_rMv2CcDtc-v1eJrbggnWrdu0FpgRIMMtwCOXULgmoU7UEUHNK-Ib/pub?output=csv';
+  // Crop circles sheet (published to web)
+  const CROP_SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQIfJZFzjhP3ql51I1Oj7e6egKr7DnMyEX64tUVmFYxIuTYDVMnm_g8dv9JAx49PdDhhMGgTzhJHgI1/pub?output=csv';
+
 
   const els = {
     statusDot: document.getElementById('statusDot'),
@@ -1035,6 +1068,7 @@ select:focus {
     encounter: document.getElementById('encounter'),
     toggleAirports: document.getElementById('toggleAirports'),
     toggleBases: document.getElementById('toggleBases'),
+    toggleCrops: document.getElementById('toggleCrops'),
     toggleFlightPaths: document.getElementById('toggleFlightPaths'),
     toggleFlightHeat: document.getElementById('toggleFlightHeat'),
     toggleDensity: document.getElementById('toggleDensity')
@@ -1155,6 +1189,19 @@ if(heatmapHelpBtn && heatmapHelpBubble){
 
   const cluster = L.markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 50 });
   const heatLayer = (L.heatLayer ? L.heatLayer([], { radius: 18, blur: 22, maxZoom: 12, minOpacity: 0.25 }) : null);
+
+  // Crop circles layer (separate from sightings so it can remain visible in Heatmap mode)
+  const cropCluster = L.markerClusterGroup({
+    showCoverageOnHover: false,
+    spiderfyOnMaxZoom: true,
+    disableClusteringAtZoom: 11,
+    maxClusterRadius: 45,
+    iconCreateFunction: (cluster) => L.divIcon({
+      html: `<div class="poi-cluster crops">${cluster.getChildCount()}</div>`,
+      className: '',
+      iconSize: [34,34]
+    })
+  });
   let lastShownLatLngs = [];
 
   function isDensityOn(){
@@ -2028,6 +2075,14 @@ function highlightListItem(id){
       } else {
         map.removeLayer(basesLayer);
       }
+    if(els.toggleCrops){
+      if(els.toggleCrops.checked){
+        cropCluster.addTo(map);
+      } else {
+        map.removeLayer(cropCluster);
+      }
+    }
+
     }
     if(els.toggleFlightPaths){
       if(els.toggleFlightPaths.checked){
@@ -2072,12 +2127,20 @@ function highlightListItem(id){
 
   if(els.toggleAirports) els.toggleAirports.addEventListener('change', syncLayerToggles);
   if(els.toggleBases) els.toggleBases.addEventListener('change', syncLayerToggles);
+  if(els.toggleCrops) els.toggleCrops.addEventListener('change', syncLayerToggles);
   if(els.toggleFlightPaths) els.toggleFlightPaths.addEventListener('change', syncLayerToggles);
   if(els.toggleFlightHeat) els.toggleFlightHeat.addEventListener('change', syncLayerToggles);
   if(els.toggleDensity) els.toggleDensity.addEventListener('change', () => { render(); });
 
 
-  loadFromGoogleSheets().catch(err => {
+    // Apply initial layer toggles
+  syncLayerToggles();
+
+  loadCropCircles().catch(err => {
+    console.warn('Crop circles failed to load:', err);
+  });
+
+loadFromGoogleSheets().catch(err => {
     console.error(err);
     setStatus('bad', (err && err.message) ? err.message : String(err));
   });
