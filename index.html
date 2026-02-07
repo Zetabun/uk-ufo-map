@@ -1485,8 +1485,32 @@ if(heatmapHelpBtn && heatmapHelpBubble){
 
   function safeYear(dateStr){
     if(!dateStr) return null;
-    const m = String(dateStr).match(/\b(18\d{2}|19\d{2}|20\d{2})\b/);
-    return m ? parseInt(m[1],10) : null;
+    const s = String(dateStr).trim();
+
+    // 4-digit year (preferred)
+    let m = s.match(/\b(18\d{2}|19\d{2}|20\d{2})\b/);
+    if(m) return parseInt(m[1], 10);
+
+    // Try common numeric date formats with 2-digit year, e.g. 1/2/07, 01-02-07, 2007 already handled above.
+    m = s.match(/(?:^|\b)(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2})(?:\b|$)/);
+    if(m){
+      const yy = parseInt(m[3], 10);
+      if(Number.isFinite(yy)){
+        // Pivot: 00-29 => 2000-2029, else 1930-1999
+        return (yy <= 29) ? (2000 + yy) : (1900 + yy);
+      }
+    }
+
+    // Fallback: any 2-digit year token at the end, e.g. "Jan 05" / "05"
+    m = s.match(/(?:\b|\D)(\d{2})(?:\s*)$/);
+    if(m){
+      const yy = parseInt(m[1], 10);
+      if(Number.isFinite(yy)){
+        return (yy <= 29) ? (2000 + yy) : (1900 + yy);
+      }
+    }
+
+    return null;
   }
 
   function parseSources(src){
@@ -1682,7 +1706,7 @@ function escapeHtml(str){
     const q = els.search.value.trim().toLowerCase();
     const reg = els.region.value;
     const minCred = parseInt(els.minCred.value, 10);
-    const y = r.year || 0;
+    const y = Number(r.year);
     const enc = (els.encounter && els.encounter.value) ? els.encounter.value : '';
 
     if(els.toggleCrop && !els.toggleCrop.checked && r.type === 'crop') return false;
@@ -1693,7 +1717,8 @@ function escapeHtml(str){
     }
     if(reg && (r.region || '') !== reg) return false;
     if((r.cred || 0) < minCred) return false;
-    if(y && (y < currentYearMin || y > currentYearMax)) return false;
+    if(!Number.isFinite(y)) return false;
+    if(y < currentYearMin || y > currentYearMax) return false;
 
     if(enc && r.type !== 'crop'){
       const raw = String(r.encounter || '').trim().toLowerCase();
