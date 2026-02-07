@@ -2130,6 +2130,22 @@ function buildCropExtraDetailsHTML(r){
     return parts.join(', ');
   }
 
+
+  function buildCropType(row){
+    // Crop circle "type" varies a lot in spreadsheets; try common naming patterns.
+    return getField(row, [
+      'Type','type',
+      'Formation type','Formation Type','formation type','formation_type',
+      'Category','category',
+      'Design','design',
+      'Pictogram','pictogram',
+      'Pattern','pattern',
+      'Shape','shape',
+      'Formation','formation',
+      'Title','title'
+    ]);
+  }
+
   // Helper: find the actual key name on the object for any of the candidate headers (case-insensitive).
   function findHeaderKey(obj, candidates){
     if (!obj) return null;
