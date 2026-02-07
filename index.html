@@ -8,6 +8,9 @@
   <!-- Leaflet -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  
+  <!-- Leaflet.heat (density layer) -->
+  <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
 
   <!-- MarkerCluster -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
@@ -898,6 +901,17 @@ select:focus {
         </label>
       </div>
 
+      <div class="toggle-row">
+        <div>
+          <div style="font-weight:650;font-size:13px">Density view</div>
+          <div class="label">Show sightings as a heatmap (hides markers)</div>
+        </div>
+        <label class="switch" title="Toggle density heatmap">
+          <input type="checkbox" id="toggleDensity">
+          <span class="slider"></span>
+        </label>
+      </div>
+
       <div class="layer-hint">These layers are optional references and won’t affect your sightings filters.</div>
     </div>
 
@@ -954,7 +968,8 @@ select:focus {
     encounter: document.getElementById('encounter'),
     toggleAirports: document.getElementById('toggleAirports'),
     toggleBases: document.getElementById('toggleBases'),
-    toggleFlightPaths: document.getElementById('toggleFlightPaths')
+    toggleFlightPaths: document.getElementById('toggleFlightPaths'),
+    toggleDensity: document.getElementById('toggleDensity')
   };
 
   // Map
@@ -1042,6 +1057,25 @@ select:focus {
 
 
   const cluster = L.markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 50 });
+  const heatLayer = (L.heatLayer ? L.heatLayer([], { radius: 18, blur: 22, maxZoom: 12, minOpacity: 0.25 }) : null);
+  let lastShownLatLngs = [];
+
+  function isDensityOn(){
+    return !!(els.toggleDensity && els.toggleDensity.checked);
+  }
+
+  function applyDensityMode(){
+    if(!heatLayer) return;
+    const on = isDensityOn();
+    if(on){
+      if(map.hasLayer(cluster)) map.removeLayer(cluster);
+      if(!map.hasLayer(heatLayer)) map.addLayer(heatLayer);
+    } else {
+      if(map.hasLayer(heatLayer)) map.removeLayer(heatLayer);
+      if(!map.hasLayer(cluster)) map.addLayer(cluster);
+    }
+  }
+
   map.addLayer(cluster);
 
   // Optional reference layers
@@ -1411,6 +1445,7 @@ function escapeHtml(str){
   function clearMarkers(){
     cluster.clearLayers();
     markersById.clear();
+    if(heatLayer) heatLayer.setLatLngs([]);
   }
 
   function matchesFilters(r){
@@ -1447,12 +1482,23 @@ function escapeHtml(str){
 
     for(const r of shown){
       if(!Number.isFinite(r.lat) || !Number.isFinite(r.lon)) continue;
-      const m = makeCircleMarker(r.lat, r.lon, r.cred);
-      m.bindPopup(makePopupHTML(r), { maxWidth: 420 });
-      m.on('click', () => highlightListItem(r.id));
-      cluster.addLayer(m);
-      markersById.set(r.id, m);
+
+      if(isDensityOn()){
+        // Weight: credibility (1..5) mapped to 0.6..1.2 so higher-cred cases glow a bit more
+        const w = Math.max(0.6, Math.min(1.2, (Number(r.cred || 1) / 5) * 1.2));
+        // Leaflet.heat accepts [lat, lng, intensity]
+        heatLayer && heatLayer.addLatLng([r.lat, r.lon, w]);
+      } else {
+        const m = makeCircleMarker(r.lat, r.lon, r.cred);
+        m.bindPopup(makePopupHTML(r), { maxWidth: 420 });
+        m.on('click', () => highlightListItem(r.id));
+        cluster.addLayer(m);
+        markersById.set(r.id, m);
+      }
     }
+
+    lastShownLatLngs = shown.filter(r => Number.isFinite(r.lat) && Number.isFinite(r.lon)).map(r => [r.lat, r.lon]);
+    applyDensityMode();
 
     const featured = shown.filter(r => isTruthyYes(r.highlight));
 
@@ -1521,15 +1567,22 @@ function highlightListItem(id){
 
 
   function fitToMarkers(){
-    const layers = cluster.getLayers();
-    if(!layers.length) return;
+    const density = isDensityOn();
+    const layers = density ? [] : cluster.getLayers();
+    const llArr = density ? lastShownLatLngs : null;
+
+    if(density){
+      if(!llArr || !llArr.length) return;
+    } else {
+      if(!layers.length) return;
+    }
 
     // If a few outliers are far outside the UK, they can blow up bounds and trigger a false warning.
     // So we fit to UK-ish points first, and only warn if most markers look non-UK.
     const within = [];
     let outsideCount = 0;
 
-    for(const lyr of layers){
+    for(const lyr of (isDensityOn() ? lastShownLatLngs.map(ll => ({getLatLng:()=>({lat:ll[0],lng:ll[1]})})) : layers)){
       if(!lyr || !lyr.getLatLng) continue;
       const ll = lyr.getLatLng();
       if(isWithinBounds(ll.lat, ll.lng, UK_SOFT_BOUNDS)){
@@ -1854,6 +1907,7 @@ function highlightListItem(id){
   if(els.toggleAirports) els.toggleAirports.addEventListener('change', syncLayerToggles);
   if(els.toggleBases) els.toggleBases.addEventListener('change', syncLayerToggles);
   if(els.toggleFlightPaths) els.toggleFlightPaths.addEventListener('change', syncLayerToggles);
+  if(els.toggleDensity) els.toggleDensity.addEventListener('change', () => { render(); });
 
 
   loadFromGoogleSheets().catch(err => {
