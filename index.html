@@ -836,6 +836,19 @@ select:focus {
 }
 .help-bubble.is-open{ display: block; }
 
+
+.popup-actions{ display:flex; gap:10px; align-items:center; margin-top:10px; }
+.popup-btn{
+  appearance:none; border:1px solid rgba(17,24,39,0.14);
+  background:#ffffff; color:#111827;
+  padding:6px 10px; border-radius:999px;
+  font-weight:700; font-size:12px; cursor:pointer;
+}
+.popup-btn:hover{ background:#f9fafb; }
+.popup-images{ display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:8px; margin-top:12px; }
+.popup-images a{ display:block; border-radius:12px; overflow:hidden; border:1px solid rgba(17,24,39,0.12); background:#0b1220; }
+.popup-images img{ width:100%; height:auto; display:block; max-width:100%; }
+.popup-images .single{ grid-column: 1 / -1; }
 </style>
 </head>
 
@@ -1668,7 +1681,7 @@ function escapeHtml(str){
           <div style="margin-top:8px"><span class="k">${r.type === 'crop' ? 'Type' : 'Evidence'}:</span> ${escapeHtml(r.evidence || '—')}</div>
           ${r.summary ? `<div class="summary">${escapeHtml(r.summary)}</div>` : ''}
           ${r.why ? `<div style="margin-top:10px;color:#6b7280">${escapeHtml(r.why)}</div>` : ''}
-          ${r.type === 'crop' ? buildCropExtraDetailsHTML(r) : ''}
+          ${r.type === 'crop' ? (buildCropImagesHTML(r) + buildCropExtraDetailsHTML(r)) : ''}
           ${linksHtml}
         </div>
       </div>
@@ -1965,7 +1978,39 @@ function highlightListItem(id){
     return Array.from(new Set(out));
   }
 
-  function buildCropExtraDetailsHTML(r){
+  
+  function parseImageUrls(value){
+    if(!value) return [];
+    const v = String(value).trim();
+    if(!v) return [];
+    // Prefer explicit URLs; fall back to splitting common delimiters.
+    const urls = extractUrlsFromValue(v);
+    if(urls.length) return urls;
+    // If someone pasted direct links without protocol, ignore rather than guessing.
+    return v.split(/[\n,;|]+/g).map(s => s.trim()).filter(Boolean).filter(s => /^https?:\/\//i.test(s));
+  }
+
+  function buildCropImagesHTML(r){
+    const imgs = parseImageUrls(r && r.images);
+    if(!imgs.length) return '';
+    const max = 6;
+    const shown = imgs.slice(0, max);
+    const items = shown.map((u, i) => {
+      const cls = (shown.length === 1) ? 'single' : '';
+      const safe = escapeHtml(u);
+      return `<a class="${cls}" href="${safe}" target="_blank" rel="noopener">
+                <img loading="lazy" src="${safe}" alt="Crop circle image ${i+1}">
+              </a>`;
+    }).join('');
+    const more = (imgs.length > max) ? `<div style="margin-top:8px;color:#6b7280;font-size:12px">+${imgs.length-max} more image(s) in sheet</div>` : '';
+    return `<div style="margin-top:12px">
+              <div style="font-weight:800;margin-bottom:6px">Images</div>
+              <div class="popup-images">${items}</div>
+              ${more}
+            </div>`;
+  }
+
+function buildCropExtraDetailsHTML(r){
     const raw = r && r._raw ? r._raw : null;
     if(!raw) return '';
     const hiddenKeys = new Set([
@@ -2009,6 +2054,10 @@ function highlightListItem(id){
     return `<details style="margin-top:12px">
       <summary style="cursor:pointer;font-weight:800;color:#111827">More details</summary>
       <div style="margin-top:8px;font-size:13px;line-height:1.45">${rows.join('')}</div>
+      <div class="popup-actions">
+        <button type="button" class="popup-btn" data-action="details-collapse">Collapse</button>
+        <button type="button" class="popup-btn" data-action="popup-close">Close</button>
+      </div>
     </details>`;
   }
 
@@ -2041,6 +2090,7 @@ function highlightListItem(id){
       evidence: (type === 'crop')
         ? (getField(r, ['Type','type','Category','category','Shape','shape','Pattern','pattern']) || '')
         : getField(r, ['Evidence','evidence']),
+      images: (type === 'crop') ? getField(r, ['Images','images','Image','image','Photos','photos','Photo','photo','Pictures','pictures','Picture','picture']) : null,
       summary: getField(r, ['Summary','summary','Description','description','Notes','notes','Details','details']),
       status: getField(r, ['Status','status','Verified','verified']),
       highlight: getField(r, ['Highlights','Highlight','highlights','highlight']),
@@ -2359,6 +2409,25 @@ function parseCsvToRows(csvUrl){
     render();
   });
 
+
+
+  // Popup controls (collapse details / close popup)
+  map.getContainer().addEventListener('click', (ev) => {
+    const btn = ev.target && ev.target.closest ? ev.target.closest('[data-action]') : null;
+    if(!btn) return;
+    const action = btn.getAttribute('data-action');
+    if(action === 'popup-close'){
+      ev.preventDefault();
+      map.closePopup();
+      return;
+    }
+    if(action === 'details-collapse'){
+      ev.preventDefault();
+      const details = btn.closest('details');
+      if(details) details.removeAttribute('open');
+      return;
+    }
+  });
 
   loadUfoDataset().catch(err => {
     console.error(err);
