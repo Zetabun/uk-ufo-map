@@ -1203,18 +1203,7 @@ if(heatmapHelpBtn && heatmapHelpBubble){
   // Common flight paths (reference layer)
   // NOTE: This is intentionally "approx" and local so the map works without any external aviation API.
   // You can swap this to a real dataset later (e.g., your own precomputed GeoJSON).
-  const FLIGHT_PATHS_GEOJSON = {
-    "type":"FeatureCollection",
-    "features":[
-      {"type":"Feature","properties":{"name":"LHR ↔︎ EDI"},"geometry":{"type":"LineString","coordinates":[[-0.4543,51.4700],[-3.3725,55.9500]]}},
-      {"type":"Feature","properties":{"name":"LHR ↔︎ GLA"},"geometry":{"type":"LineString","coordinates":[[-0.4543,51.4700],[-4.4331,55.8719]]}},
-      {"type":"Feature","properties":{"name":"LHR ↔︎ MAN"},"geometry":{"type":"LineString","coordinates":[[-0.4543,51.4700],[-2.2750,53.3537]]}},
-      {"type":"Feature","properties":{"name":"LGW ↔︎ EDI"},"geometry":{"type":"LineString","coordinates":[[-0.1821,51.1537],[-3.3725,55.9500]]}},
-      {"type":"Feature","properties":{"name":"MAN ↔︎ BFS"},"geometry":{"type":"LineString","coordinates":[[-2.2750,53.3537],[-6.2158,54.6575]]}},
-      {"type":"Feature","properties":{"name":"BHX ↔︎ BFS"},"geometry":{"type":"LineString","coordinates":[[-1.7480,52.4539],[-6.2158,54.6575]]}},
-      {"type":"Feature","properties":{"name":"BRS ↔︎ EDI"},"geometry":{"type":"LineString","coordinates":[[-2.7191,51.3827],[-3.3725,55.9500]]}}
-    ]
-  };
+  const FLIGHT_PATHS_GEOJSON = {"type":"FeatureCollection","features":[{"type":"Feature","properties":{"name":"LHR ↔︎ EDI"},"geometry":{"type":"LineString","coordinates":[[-0.4543,51.47],[-3.3725,55.95]]}},{"type":"Feature","properties":{"name":"LHR ↔︎ GLA"},"geometry":{"type":"LineString","coordinates":[[-0.4543,51.47],[-4.4331,55.8719]]}},{"type":"Feature","properties":{"name":"LHR ↔︎ MAN"},"geometry":{"type":"LineString","coordinates":[[-0.4543,51.47],[-2.275,53.3537]]}},{"type":"Feature","properties":{"name":"LGW ↔︎ EDI"},"geometry":{"type":"LineString","coordinates":[[-0.1821,51.1537],[-3.3725,55.95]]}},{"type":"Feature","properties":{"name":"MAN ↔︎ BFS"},"geometry":{"type":"LineString","coordinates":[[-2.275,53.3537],[-6.2158,54.6575]]}},{"type":"Feature","properties":{"name":"BHX ↔︎ BFS"},"geometry":{"type":"LineString","coordinates":[[-1.748,52.4539],[-6.2158,54.6575]]}},{"type":"Feature","properties":{"name":"BRS ↔︎ EDI"},"geometry":{"type":"LineString","coordinates":[[-2.7191,51.3827],[-3.3725,55.95]]}},{"type":"Feature","properties":{"name":"STN ↔︎ EDI"},"geometry":{"type":"LineString","coordinates":[[0.235,51.885],[-3.3725,55.95]]}},{"type":"Feature","properties":{"name":"LTN ↔︎ GLA"},"geometry":{"type":"LineString","coordinates":[[-0.3683,51.8747],[-4.4331,55.8719]]}},{"type":"Feature","properties":{"name":"LCY ↔︎ EDI"},"geometry":{"type":"LineString","coordinates":[[0.0553,51.5053],[-3.3725,55.95]]}},{"type":"Feature","properties":{"name":"LPL ↔︎ BFS"},"geometry":{"type":"LineString","coordinates":[[-2.8497,53.3336],[-6.2158,54.6575]]}},{"type":"Feature","properties":{"name":"NCL ↔︎ LHR"},"geometry":{"type":"LineString","coordinates":[[-1.6917,55.0375],[-0.4543,51.47]]}},{"type":"Feature","properties":{"name":"LBA ↔︎ LHR"},"geometry":{"type":"LineString","coordinates":[[-1.6606,53.8659],[-0.4543,51.47]]}},{"type":"Feature","properties":{"name":"ABZ ↔︎ LHR"},"geometry":{"type":"LineString","coordinates":[[-2.1978,57.2019],[-0.4543,51.47]]}},{"type":"Feature","properties":{"name":"CWL ↔︎ MAN"},"geometry":{"type":"LineString","coordinates":[[-3.3433,51.3967],[-2.275,53.3537]]}},{"type":"Feature","properties":{"name":"MAN ↔︎ EDI"},"geometry":{"type":"LineString","coordinates":[[-2.275,53.3537],[-3.3725,55.95]]}},{"type":"Feature","properties":{"name":"BHX ↔︎ EDI"},"geometry":{"type":"LineString","coordinates":[[-1.748,52.4539],[-3.3725,55.95]]}},{"type":"Feature","properties":{"name":"LGW ↔︎ GLA"},"geometry":{"type":"LineString","coordinates":[[-0.1821,51.1537],[-4.4331,55.8719]]}},{"type":"Feature","properties":{"name":"BRS ↔︎ MAN"},"geometry":{"type":"LineString","coordinates":[[-2.7191,51.3827],[-2.275,53.3537]]}}]};
   // Style and render (as GeoJSON so it's easy to replace later)
   // Sleek "cased" flight paths: soft glow underlay + crisp top line
   const flightPathsGlow = L.geoJSON(FLIGHT_PATHS_GEOJSON, {
@@ -1247,25 +1236,132 @@ if(heatmapHelpBtn && heatmapHelpBubble){
   });
 
 
-  // Minimal curated sets (major airports + key bases). You can add/remove items anytime.
-  const AIRPORTS = [
-    { name: "London Heathrow (LHR)", lat: 51.4700, lon: -0.4543 },
-    { name: "London Gatwick (LGW)", lat: 51.1537, lon: -0.1821 },
-    { name: "London Stansted (STN)", lat: 51.8850, lon: 0.2350 },
-    { name: "London Luton (LTN)", lat: 51.8747, lon: -0.3683 },
-    { name: "London City (LCY)", lat: 51.5053, lon: 0.0553 },
-    { name: "Manchester (MAN)", lat: 53.3537, lon: -2.2750 },
-    { name: "Birmingham (BHX)", lat: 52.4539, lon: -1.7480 },
-    { name: "Bristol (BRS)", lat: 51.3827, lon: -2.7191 },
-    { name: "Liverpool John Lennon (LPL)", lat: 53.3336, lon: -2.8497 },
-    { name: "Newcastle (NCL)", lat: 55.0375, lon: -1.6917 },
-    { name: "Leeds Bradford (LBA)", lat: 53.8659, lon: -1.6606 },
-    { name: "Edinburgh (EDI)", lat: 55.9500, lon: -3.3725 },
-    { name: "Glasgow (GLA)", lat: 55.8719, lon: -4.4331 },
-    { name: "Aberdeen (ABZ)", lat: 57.2019, lon: -2.1978 },
-    { name: "Belfast International (BFS)", lat: 54.6575, lon: -6.2158 },
-    { name: "Cardiff (CWL)", lat: 51.3967, lon: -3.3433 }
-  ];
+  // Airports
+// By default we keep a small fallback list so the map still works offline.
+// If the page is served over HTTP/HTTPS, we'll try to load *all UK airports* from the OurAirports open dataset.
+// Data source (CSV): https://ourairports.com/data/ (airports.csv)
+const AIRPORTS_FALLBACK = [
+  { name: "London Heathrow (LHR)", lat: 51.4700, lon: -0.4543 },
+  { name: "London Gatwick (LGW)", lat: 51.1537, lon: -0.1821 },
+  { name: "London Stansted (STN)", lat: 51.8850, lon: 0.2350 },
+  { name: "London Luton (LTN)", lat: 51.8747, lon: -0.3683 },
+  { name: "London City (LCY)", lat: 51.5053, lon: 0.0553 },
+  { name: "Manchester (MAN)", lat: 53.3537, lon: -2.2750 },
+  { name: "Birmingham (BHX)", lat: 52.4539, lon: -1.7480 },
+  { name: "Bristol (BRS)", lat: 51.3827, lon: -2.7191 },
+  { name: "Liverpool John Lennon (LPL)", lat: 53.3336, lon: -2.8497 },
+  { name: "Newcastle (NCL)", lat: 55.0375, lon: -1.6917 },
+  { name: "Leeds Bradford (LBA)", lat: 53.8659, lon: -1.6606 },
+  { name: "Edinburgh (EDI)", lat: 55.9500, lon: -3.3725 },
+  { name: "Glasgow (GLA)", lat: 55.8719, lon: -4.4331 },
+  { name: "Aberdeen (ABZ)", lat: 57.2019, lon: -2.1978 },
+  { name: "Belfast International (BFS)", lat: 54.6575, lon: -6.2158 },
+  { name: "Cardiff (CWL)", lat: 51.3967, lon: -3.3433 }
+];
+let AIRPORTS = AIRPORTS_FALLBACK;
+
+// Robust-enough CSV row parser (handles quotes/commas)
+function parseCsvLine(line) {
+  const out = [];
+  let cur = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i+1] === '"') { cur += '"'; i++; }
+      else inQuotes = !inQuotes;
+    } else if (ch === ',' && !inQuotes) {
+      out.push(cur);
+      cur = '';
+    } else {
+      cur += ch;
+    }
+  }
+  out.push(cur);
+  return out;
+}
+
+async function loadUKAirportsFromOurAirports() {
+  // IMPORTANT: This will generally NOT work when opened as a local file (file://) due to browser CORS rules.
+  // Serve the HTML via a simple local web server for best results.
+  const url = "https://ourairports.com/data/airports.csv";
+  const res = await fetch(url, { cache: "force-cache" });
+  if (!res.ok) throw new Error("Failed to fetch airports.csv (" + res.status + ")");
+  const text = await res.text();
+
+  const lines = text.split(/\r?\n/).filter(Boolean);
+  if (lines.length < 2) throw new Error("airports.csv is empty");
+
+  const headers = parseCsvLine(lines[0]);
+  const idx = (name) => headers.indexOf(name);
+
+  const iType = idx("type");
+  const iName = idx("name");
+  const iLat  = idx("latitude_deg");
+  const iLon  = idx("longitude_deg");
+  const iIso  = idx("iso_country");
+  const iIata = idx("iata_code");
+  const iIdent = idx("ident");
+  const iServ = idx("scheduled_service");
+
+  const allowedTypes = new Set(["large_airport","medium_airport","small_airport"]);
+  const out = [];
+
+  for (let li = 1; li < lines.length; li++) {
+    const row = parseCsvLine(lines[li]);
+    if (row.length !== headers.length) continue;
+
+    if (row[iIso] !== "GB") continue; // United Kingdom (ISO 3166-1 alpha-2)
+    const t = row[iType];
+    if (!allowedTypes.has(t)) continue;
+
+    const lat = parseFloat(row[iLat]);
+    const lon = parseFloat(row[iLon]);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+
+    const code = (row[iIata] || row[iIdent] || "").trim();
+    const airportName = (row[iName] || "").trim();
+    if (!airportName) continue;
+
+    // Keep label short + consistent with your current style
+    const label = code ? `${airportName} (${code})` : airportName;
+
+    // Optional: prioritize airports with scheduled service, but still include the rest.
+    // (OurAirports uses "yes"/"" here)
+    const scheduled = (iServ >= 0 ? row[iServ] : "");
+
+    out.push({ name: label, lat, lon, _type: t, _scheduled: scheduled });
+  }
+
+  // Sort: scheduled service first, then by size (large → medium → small), then name
+  const rank = { large_airport: 0, medium_airport: 1, small_airport: 2 };
+  out.sort((a,b) => {
+    const as = (a._scheduled === "yes") ? 0 : 1;
+    const bs = (b._scheduled === "yes") ? 0 : 1;
+    if (as !== bs) return as - bs;
+    const ar = rank[a._type] ?? 99;
+    const br = rank[b._type] ?? 99;
+    if (ar !== br) return ar - br;
+    return a.name.localeCompare(b.name);
+  });
+
+  // Strip internal fields
+  return out.map(a => ({ name: a.name, lat: a.lat, lon: a.lon }));
+}
+
+async function loadUKAirportsAndRebuild() {
+  try {
+    const list = await loadUKAirportsFromOurAirports();
+    if (Array.isArray(list) && list.length) {
+      AIRPORTS = list;
+    }
+  } catch (e) {
+    // Silent fallback — the map still works with the curated list.
+    console.warn("[airports] Using fallback list:", e);
+    AIRPORTS = AIRPORTS_FALLBACK;
+  }
+  buildPoiLayers();
+}
 
   const BASES = [
     { name: "RAF Brize Norton", lat: 51.7500, lon: -1.5830 },
@@ -1321,6 +1417,8 @@ if(heatmapHelpBtn && heatmapHelpBubble){
   }
 
   buildPoiLayers();
+
+  loadUKAirportsAndRebuild();
 
   // Fix occasional "map misalignment" (Leaflet needs a resize invalidate after layout settles)
   function fixMapSizeSoon(){
