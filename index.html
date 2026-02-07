@@ -930,11 +930,23 @@ select:focus {
 
       <div class="toggle-row">
         <div>
+          <div style="font-weight:650;font-size:13px">UFO sightings</div>
+          <div class="label">Show UFO sighting reports</div>
+        </div>
+        <label class="switch" title="Toggle UFO sightings">
+          <input type="checkbox" id="toggleUfo" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+
+      <div class="toggle-row">
+        <div>
           <div style="font-weight:650;font-size:13px">Crop circles</div>
           <div class="label">Show crop circle reports</div>
         </div>
         <label class="switch" title="Toggle crop circles">
-          <input type="checkbox" id="toggleCrop" checked>
+          <input type="checkbox" id="toggleCrop">
           <span class="slider"></span>
         </label>
       </div>
@@ -1056,6 +1068,7 @@ select:focus {
     toggleFlightPaths: document.getElementById('toggleFlightPaths'),
     toggleFlightHeat: document.getElementById('toggleFlightHeat'),
     toggleDensity: document.getElementById('toggleDensity'),
+    toggleUfo: document.getElementById('toggleUfo'),
     toggleCrop: document.getElementById('toggleCrop')
   };
 // Heatmap help tooltip
@@ -1414,7 +1427,15 @@ if(heatmapHelpBtn && heatmapHelpBubble){
 
 
   // State
+  let ufoRecords = [];
+  let cropRecords = [];
+  let cropLoaded = false;
+
+  // `records` is the ACTIVE dataset used for rendering (based on toggles).
+  // `recordsAll` is everything currently loaded (used for slider range / totals).
   let records = [];
+  let recordsAll = [];
+
   let markersById = new Map();
   let currentYearMin = 1900, currentYearMax = 2100;
 
@@ -1656,7 +1677,38 @@ function escapeHtml(str){
     return true;
   }
 
+  function syncActiveRecords(){
+    const showUfo = !!(els.toggleUfo && els.toggleUfo.checked);
+    const showCrop = !!(els.toggleCrop && els.toggleCrop.checked);
+    records = [
+      ...(showUfo ? ufoRecords : []),
+      ...((showCrop && cropLoaded) ? cropRecords : [])
+    ];
+  }
+
+  function recomputeYearSliderRange(){
+    // Keep current selection where possible
+    const years = recordsAll.map(r => r.year).filter(Boolean);
+    const minY = years.length ? Math.min(...years) : 1950;
+    const maxY = years.length ? Math.max(...years) : new Date().getFullYear();
+
+    if(!els.yearSlider.noUiSlider){
+      initYearSlider(minY, maxY);
+      return;
+    }
+
+    const slider = els.yearSlider.noUiSlider;
+    const cur = slider.get().map(v => Math.round(Number(v)));
+    const clamp = (v) => Math.max(minY, Math.min(maxY, v));
+    const next = [clamp(cur[0]), clamp(cur[1])];
+
+    slider.updateOptions({ range: { min: minY, max: maxY } }, false);
+    slider.set(next);
+  }
+
   function render(){
+    syncActiveRecords();
+
     clearMarkers();
     els.list.innerHTML = '';
 
@@ -1822,7 +1874,7 @@ function highlightListItem(id){
   }
 
   function populateRegionOptions(){
-    const set = new Set(records.map(r => r.region).filter(Boolean));
+    const set = new Set(recordsAll.map(r => r.region).filter(Boolean));
     const regions = Array.from(set).sort();
     els.region.innerHTML = '<option value="">All</option>' + regions.map(r => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join('');
   }
@@ -1929,11 +1981,12 @@ function highlightListItem(id){
     return { lat, lon };
   }
 
-  async function geocodeMissingCoords(){
+  async function geocodeMissingCoords(list){
+    const arr = list || recordsAll;
     const cache = loadGeoCache();
 
     // Apply cache first
-    for(const r of records){
+    for(const r of arr){
       if(Number.isFinite(r.lat) && Number.isFinite(r.lon)) continue;
       const key = cacheKeyForLocation(r.location);
       if(key && cache[key]){
@@ -1942,7 +1995,7 @@ function highlightListItem(id){
       }
     }
 
-    const queue = records.filter(r => (!Number.isFinite(r.lat) || !Number.isFinite(r.lon)) && String(r.location || '').trim());
+    const queue = arr.filter(r => (!Number.isFinite(r.lat) || !Number.isFinite(r.lon)) && String(r.location || '').trim());
     if(!queue.length) return;
 
     setStatus('warn', `Geocoding ${queue.length} location(s)… (cached where possible)`);
@@ -1975,11 +2028,11 @@ function highlightListItem(id){
       }
     }
 
-    const stillMissing = records.filter(r => !Number.isFinite(r.lat) || !Number.isFinite(r.lon)).length;
+    const stillMissing = arr.filter(r => !Number.isFinite(r.lat) || !Number.isFinite(r.lon)).length;
     if(stillMissing){
-      setStatus('warn', `Loaded ${records.length} rows. ${stillMissing} still missing lat/lon (won’t plot).`);
+      setStatus('warn', `Loaded ${arr.length} rows. ${stillMissing} still missing lat/lon (won’t plot).`);
     } else {
-      setStatus('ok', `Loaded ${records.length} rows. Ready.`);
+      setStatus('ok', `Loaded ${arr.length} rows. Ready.`);
     }
   }
 
@@ -1992,42 +2045,30 @@ function highlightListItem(id){
         skipEmptyLines: true,
         complete: (results) => resolve(Array.isArray(results.data) ? results.data : []),
         error: (err) => reject(err)
-      });
-    });
-  }
+     async function loadUfoDataset(){
+    setStatus('warn','Loading UFO sightings…');
+    setProgress(0, 1);
 
-  async function loadAllDatasets(){
-    setStatus('warn','Loading data…');
-
-    // Two datasets: UFO sightings + crop circles
-    setProgress(0, 2);
-
-    const [ufoRaw, cropRaw] = await Promise.all([
-      parseCsvToRows(SHEET_CSV_URL).finally(() => setProgress(1, 2)),
-      parseCsvToRows(CROP_CSV_URL).finally(() => setProgress(2, 2))
-    ]);
-
-    const ufo = (ufoRaw || []).map((row, idx) => normaliseRow(row, idx, 'ufo'))
-      .filter(r => (r.case || r.location || r.summary));
-    const crop = (cropRaw || []).map((row, idx) => normaliseRow(row, idx, 'crop'))
+    const ufoRaw = await parseCsvToRows(SHEET_CSV_URL).finally(() => setProgress(1, 1));
+    ufoRecords = (ufoRaw || []).map((row, idx) => normaliseRow(row, idx, 'ufo'))
       .filter(r => (r.case || r.location || r.summary));
 
-    records = [...ufo, ...crop];
-    els.kpiTotal.textContent = records.length;
+    recordsAll = [...ufoRecords, ...(cropLoaded ? cropRecords : [])];
+    els.kpiTotal.textContent = recordsAll.length;
 
-    // Year slider should apply to BOTH datasets, so take the range across everything.
-    const years = records.map(r => r.year).filter(Boolean);
+    // Initialise slider from what's loaded right now (UFO by default).
+    const years = recordsAll.map(r => r.year).filter(Boolean);
     const minY = years.length ? Math.min(...years) : 1950;
     const maxY = years.length ? Math.max(...years) : new Date().getFullYear();
     initYearSlider(minY, maxY);
 
     populateRegionOptions();
 
-    const missingCoords = records.filter(r => !Number.isFinite(r.lat) || !Number.isFinite(r.lon)).length;
+    const missingCoords = recordsAll.filter(r => !Number.isFinite(r.lat) || !Number.isFinite(r.lon)).length;
     if(missingCoords){
-      setStatus('warn', `Loaded ${records.length} rows (UFO: ${ufo.length}, crop circles: ${crop.length}). ${missingCoords} missing lat/lon (won't plot) — using Location geocoding as a fallback.`);
+      setStatus('warn', `Loaded ${recordsAll.length} rows (UFO: ${ufoRecords.length}). ${missingCoords} missing lat/lon (won't plot) — using Location geocoding as a fallback.`);
     } else {
-      setStatus('ok', `Loaded ${records.length} rows (UFO: ${ufo.length}, crop circles: ${crop.length}). Ready.`);
+      setStatus('ok', `Loaded ${recordsAll.length} rows (UFO: ${ufoRecords.length}). Ready.`);
     }
 
     render();
@@ -2035,7 +2076,39 @@ function highlightListItem(id){
     fixMapSizeSoon();
 
     // Fallback: geocode rows missing lat/lon (rate-limited + cached)
-    await geocodeMissingCoords();
+    await geocodeMissingCoords(ufoRecords);
+  }
+
+  async function loadCropDataset(){
+    setStatus('warn','Loading crop circles…');
+    setProgress(0, 1);
+
+    const cropRaw = await parseCsvToRows(CROP_CSV_URL).finally(() => setProgress(1, 1));
+    cropRecords = (cropRaw || []).map((row, idx) => normaliseRow(row, idx, 'crop'))
+      .filter(r => (r.case || r.location || r.summary));
+
+    cropLoaded = true;
+    recordsAll = [...ufoRecords, ...cropRecords];
+    els.kpiTotal.textContent = recordsAll.length;
+
+    // Expand slider range (if needed) to include crop circle years, while keeping the user's current selection.
+    recomputeYearSliderRange();
+    populateRegionOptions();
+
+    const missingCoords = cropRecords.filter(r => !Number.isFinite(r.lat) || !Number.isFinite(r.lon)).length;
+    if(missingCoords){
+      setStatus('warn', `Loaded crop circles (${cropRecords.length}). ${missingCoords} missing lat/lon (won't plot) — using Location geocoding as a fallback.`);
+    } else {
+      setStatus('ok', `Loaded crop circles (${cropRecords.length}).`);
+    }
+
+    render();
+
+    // Fallback: geocode rows missing lat/lon (rate-limited + cached)
+    await geocodeMissingCoords(cropRecords);
+  }
+
+  ingCoords();
   }
 
   ['input','change'].forEach(evt => {
@@ -2051,7 +2124,8 @@ function highlightListItem(id){
     els.region.value = '';
     els.minCred.value = '1';
     if(els.encounter) els.encounter.value = '';
-    if(els.toggleCrop) els.toggleCrop.checked = true;
+    if(els.toggleUfo) els.toggleUfo.checked = true;
+    if(els.toggleCrop) els.toggleCrop.checked = false;
     const slider = els.yearSlider.noUiSlider;
     if(slider){
       const r = slider.options.range;
@@ -2126,10 +2200,24 @@ function highlightListItem(id){
   if(els.toggleFlightPaths) els.toggleFlightPaths.addEventListener('change', syncLayerToggles);
   if(els.toggleFlightHeat) els.toggleFlightHeat.addEventListener('change', syncLayerToggles);
   if(els.toggleDensity) els.toggleDensity.addEventListener('change', () => { render(); });
-  if(els.toggleCrop) els.toggleCrop.addEventListener('change', () => { render(); });
+  if(els.toggleUfo) els.toggleUfo.addEventListener('change', () => { render(); });
+
+  if(els.toggleCrop) els.toggleCrop.addEventListener('change', async () => {
+    if(els.toggleCrop.checked && !cropLoaded){
+      try {
+        await loadCropDataset();
+      } catch(err){
+        console.error(err);
+        setStatus('bad', (err && err.message) ? err.message : String(err));
+        // revert toggle if load fails
+        els.toggleCrop.checked = false;
+      }
+    }
+    render();
+  });
 
 
-  loadAllDatasets().catch(err => {
+  loadUfoDataset().catch(err => {
     console.error(err);
     setStatus('bad', (err && err.message) ? err.message : String(err));
   });
