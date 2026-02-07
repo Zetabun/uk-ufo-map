@@ -1555,6 +1555,46 @@ if(heatmapHelpBtn && heatmapHelpBubble){
         if(String(k).trim().toLowerCase() === target){
           return row[k];
         }
+
+  function buildCombinedLocation(row){
+    // Try to assemble a human-readable location from common column names if 'Location' isn't present.
+    const parts = [];
+
+    // Place / site style fields
+    const place = getField(row, ['Place','place','Site','site','Field','field','Farm','farm','Name of field','name of field','Nearest field','nearest field','Location name','location name']);
+    if(place) parts.push(String(place).trim());
+
+    // Town / village / nearest settlement
+    const town = getField(row, ['Town','town','Village','village','Nearest town','nearest town','Nearest village','nearest village','City','city','Locality','locality','Near','near']);
+    if(town) parts.push(String(town).trim());
+
+    // County / region
+    const county = getField(row, ['County','county','Region','region','Area','area','District','district']);
+    if(county) parts.push(String(county).trim());
+
+    // Country
+    const country = getField(row, ['Country','country']);
+    if(country) parts.push(String(country).trim());
+
+    // De-dup + join
+    const uniq = Array.from(new Set(parts.filter(Boolean)));
+    return uniq.join(', ');
+  }
+
+  function buildCropType(row){
+    // Crop circle "type" varies a lot in spreadsheets; try common naming patterns.
+    return getField(row, [
+      'Type','type',
+      'Formation type','Formation Type','formation type',
+      'Category','category',
+      'Shape','shape',
+      'Pattern','pattern',
+      'Design','design',
+      'Style','style',
+      'Pictogram','pictogram',
+      'Pictogram type','Pictogram Type','pictogram type'
+    ]);
+  }
       }
     }
     return '';
@@ -2084,11 +2124,11 @@ function buildCropExtraDetailsHTML(r){
       time: getField(r, ['Time','time']),
       date_iso: getField(r, ['Date_ISO','date_iso','Date ISO','Date (ISO)','ISO Date','Date ISO (UTC)','date iso']),
 
-      location: getField(r, ['Location','location']),
+      location: (getField(r, ['Location','location']) || buildCombinedLocation(r)),
       region: getField(r, ['Region','region']),
       witness: getField(r, ['Witness profile','Witness','witness','Witnesses','witnesses']),
       evidence: (type === 'crop')
-        ? (getField(r, ['Type','type','Category','category','Shape','shape','Pattern','pattern']) || '')
+        ? (buildCropType(r) || '')
         : getField(r, ['Evidence','evidence']),
       images: (type === 'crop') ? getField(r, ['Images','images','Image','image','Photos','photos','Photo','photo','Pictures','pictures','Picture','picture']) : null,
       summary: getField(r, ['Summary','summary','Description','description','Notes','notes','Details','details']),
