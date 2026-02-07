@@ -62,7 +62,7 @@
       min-height:0;
       -webkit-overflow-scrolling:touch;
     }
-    #map{height:100%;width:100%;position:relative;z-index:0}
+    #map{height:100%;width:100%;position:relative;z-index:0;background:var(--bg)}
     .card{background:rgba(17,24,39,.7);border:1px solid var(--border);border-radius:14px;padding:12px;margin-bottom:12px}
     .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
     .row > *{flex:1;min-width:120px}
@@ -1107,11 +1107,24 @@ if(heatmapHelpBtn && heatmapHelpBubble){
   map.createPane('flightPathsPane');
   map.getPane('flightPathsPane').style.zIndex = 450;
   map.getPane('flightPathsPane').style.pointerEvents = 'auto';
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+  // Base tiles (use OSM by default; keep CARTO as a fallback)
+  const osmTiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors'
+  });
+
+  const cartoTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
     maxZoom: 19,
     subdomains: 'abcd',
     attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
-  }).addTo(map);
+  });
+
+  // Start with OSM (more reliable in locked-down environments)
+  osmTiles.addTo(map);
+
+  // If you prefer CARTO aesthetics, uncomment the next line:
+  // cartoTiles.addTo(map);
+
 
   // Mobile: collapsible filter panel (off-canvas drawer)
   const mqPanel = window.matchMedia('(max-width: 960px)');
@@ -1687,30 +1700,20 @@ function escapeHtml(str){
   }
 
   function recomputeYearSliderRange(){
-    // Keep current selection where possible
-    const years = recordsAll.map(r => r.year).filter(Boolean);
-    const minY = years.length ? Math.min(...years) : 1950;
-    const maxY = years.length ? Math.max(...years) : new Date().getFullYear();
+  // Use everything that is currently loaded (UFO always loaded; crop only once enabled)
+  const loaded = [...ufoRecords, ...(cropLoaded ? cropRecords : [])];
+  const years = loaded.map(r => r.year).filter(Boolean);
+  const minY = years.length ? Math.min(...years) : 1950;
+  const maxY = years.length ? Math.max(...years) : new Date().getFullYear();
+  initYearSlider(minY, maxY);
+}
 
-    if(!els.yearSlider.noUiSlider){
-      initYearSlider(minY, maxY);
-      return;
-    }
-
-    const slider = els.yearSlider.noUiSlider;
-    const cur = slider.get().map(v => Math.round(Number(v)));
-    const clamp = (v) => Math.max(minY, Math.min(maxY, v));
-    const next = [clamp(cur[0]), clamp(cur[1])];
-
-    slider.updateOptions({ range: { min: minY, max: maxY } }, false);
-    slider.set(next);
-  }
 
   function render(){
     syncActiveRecords();
 
     clearMarkers();
-    els.list.innerHTML = '';
+    if(els.list) els.list.innerHTML = '';
 
     const shown = records.filter(matchesFilters);
     els.kpiShown.textContent = shown.length;
@@ -1848,12 +1851,11 @@ function highlightListItem(id){
 
 
   function initYearSlider(minY, maxY){
-    currentYearMin = minY;
-    currentYearMax = maxY;
+  currentYearMin = minY;
+  currentYearMax = maxY;
 
-    if(els.yearSlider.noUiSlider){
-      els.yearSlider.noUiSlider.destroy();
-    }
+  // Create once; later we update the range without destroying to avoid edge-case breakage.
+  if(!els.yearSlider.noUiSlider){
     noUiSlider.create(els.yearSlider, {
       start: [minY, maxY],
       connect: true,
@@ -1861,8 +1863,6 @@ function highlightListItem(id){
       range: { min: minY, max: maxY },
       format: { to: v => Math.round(v), from: v => parseInt(v,10) }
     });
-    els.yearMin.textContent = minY;
-    els.yearMax.textContent = maxY;
 
     els.yearSlider.noUiSlider.on('update', (values) => {
       currentYearMin = parseInt(values[0],10);
@@ -1871,7 +1871,22 @@ function highlightListItem(id){
       els.yearMax.textContent = currentYearMax;
       render();
     });
+  } else {
+    // If it already exists, update the bounds and clamp current values.
+    const s = els.yearSlider.noUiSlider;
+    const cur = s.get().map(v => parseInt(v,10));
+    const clamped = [
+      Math.max(minY, Math.min(maxY, cur[0])),
+      Math.max(minY, Math.min(maxY, cur[1]))
+    ];
+    s.updateOptions({ range: { min: minY, max: maxY } }, false);
+    s.set(clamped);
   }
+
+  els.yearMin.textContent = currentYearMin;
+  els.yearMax.textContent = currentYearMax;
+}
+
 
   function populateRegionOptions(){
     const set = new Set(recordsAll.map(r => r.region).filter(Boolean));
@@ -2036,15 +2051,18 @@ function highlightListItem(id){
     }
   }
 
-  function parseCsvToRows(csvUrl){
-    const url = csvUrl + (csvUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
-    return new Promise((resolve, reject) => {
-      Papa.parse(url, {
-        download: true,
-        header: true,
-        skipEmptyLines: true,
-        complete: (results) => resolve(Array.isArray(results.data) ? results.data : []),
-        error: (err) => reject(err)
+function parseCsvToRows(csvUrl){
+  const url = csvUrl + (csvUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
+  return new Promise((resolve, reject) => {
+    Papa.parse(url, {
+      download: true,
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => resolve(Array.isArray(results.data) ? results.data : []),
+      error: (err) => reject(err)
+    });
+  });
+}
      async function loadUfoDataset(){
     setStatus('warn','Loading UFO sightings…');
     setProgress(0, 1);
@@ -2108,8 +2126,6 @@ function highlightListItem(id){
     await geocodeMissingCoords(cropRecords);
   }
 
-  ingCoords();
-  }
 
   ['input','change'].forEach(evt => {
     els.search.addEventListener(evt, () => render());
