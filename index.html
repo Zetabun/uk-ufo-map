@@ -1555,11 +1555,6 @@ if(heatmapHelpBtn && heatmapHelpBubble){
         if(String(k).trim().toLowerCase() === target){
           return row[k];
         }
-      }
-    }
-    return '';
-  }
-
 
   function buildCombinedLocation(row){
     // Try to assemble a human-readable location from common column names if 'Location' isn't present.
@@ -2105,6 +2100,48 @@ function buildCropExtraDetailsHTML(r){
       </div>
     </details>`;
   }
+
+  // Build a human-readable location for crop-circle rows when the sheet doesn't provide a single 'Location' field.
+  // (Defined here in the top-level scope because we lazy-load datasets and normaliseRow runs outside any helpers.)
+  function buildCombinedLocation(row){
+    const parts = [];
+
+    // Place / site style fields
+    const place = getField(row, ['Location','location','Place','place','Site','site','Field','field','Farm','farm','Area','area','Name','name','Formation','formation','Title','title']);
+    // Town / village style fields
+    const town = getField(row, ['Town','town','Village','village','Nearest town','nearest town','Nearest Town','nearest_town','City','city','Locality','locality']);
+    // County / region style fields
+    const county = getField(row, ['County','county','Region','region','State','state','Province','province','Area','area_region','Administrative area','administrative area']);
+    // Country
+    const country = getField(row, ['Country','country','Nation','nation']);
+
+    // If the sheet already has a clean Location field, prefer it.
+    if (place && String(place).trim() && ['Location','location'].includes(findHeaderKey(row, ['Location','location']) || '')){
+      return String(place).trim();
+    }
+
+    // Otherwise, assemble from available bits (avoid duplicates).
+    for (const v of [place, town, county, country]){
+      const t = (v == null ? '' : String(v)).trim();
+      if (!t) continue;
+      if (!parts.some(p => p.toLowerCase() === t.toLowerCase())) parts.push(t);
+    }
+
+    return parts.join(', ');
+  }
+
+  // Helper: find the actual key name on the object for any of the candidate headers (case-insensitive).
+  function findHeaderKey(obj, candidates){
+    if (!obj) return null;
+    const keys = Object.keys(obj);
+    for (const c of candidates){
+      const target = String(c).toLowerCase();
+      const hit = keys.find(k => String(k).toLowerCase() === target);
+      if (hit) return hit;
+    }
+    return null;
+  }
+
 
   // Accept these coordinate headers:
   //  - lat/lon  (preferred)
