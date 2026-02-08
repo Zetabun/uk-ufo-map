@@ -2047,47 +2047,36 @@ function buildSingleWheel(step){
     div.dataset.value = String(v);
     div.textContent = labelFn ? labelFn(v) : String(v);
 
-    const choose = () => {
-      const n = parseInt(div.dataset.value, 10);
-      if(step === 'day') pickerState.day = n;
-      if(step === 'month'){
-        pickerState.month = n;
-        // clamp day
-        pickerState.day = Math.min(pickerState.day, daysInMonth(pickerState.year, pickerState.month));
-      }
-      if(step === 'year'){
-        pickerState.year = n;
-        // clamp day
-        pickerState.day = Math.min(pickerState.day, daysInMonth(pickerState.year, pickerState.month));
-      }
-
-      // reflect typed box
-      if(p.text) p.text.value = formatUKDate(pickerState.year, pickerState.month, pickerState.day);
-
-      // rebuild day list if month/year changed while on month/year
-      if(step !== 'day'){
-        // if currently viewing month/year, day list will be rebuilt when user returns to day
-      }
-
-      // snap to chosen element
-      scrollWheelToValue(p.wheel, div.dataset.value, true);
-
-      // auto-advance (day -> month -> year)
-      if(step === 'day') setActiveStep('month');
-      else if(step === 'month') setActiveStep('year');
-    };
-
-    div.addEventListener('click', choose);
-    div.addEventListener('keydown', (e) => {
-      if(e.key === 'Enter' || e.key === ' '){
-        e.preventDefault();
-        choose();
-      }
-    });
-
     p.wheel.appendChild(div);
   });
 
+
+  // expose a step-aware chooser for delegated clicks / keyboard
+  p.wheel._wheelStep = step;
+  p.wheel._applyChoice = (valueStr, autoAdvance=true) => {
+    if(valueStr == null) return;
+    const n = parseInt(String(valueStr), 10);
+    if(Number.isNaN(n)) return;
+
+    if(step === 'day') pickerState.day = n;
+    if(step === 'month'){
+      pickerState.month = n;
+      pickerState.day = Math.min(pickerState.day, daysInMonth(pickerState.year, pickerState.month));
+    }
+    if(step === 'year'){
+      pickerState.year = n;
+      pickerState.day = Math.min(pickerState.day, daysInMonth(pickerState.year, pickerState.month));
+    }
+
+    if(p.text) p.text.value = formatUKDate(pickerState.year, pickerState.month, pickerState.day);
+
+    scrollWheelToValue(p.wheel, String(n), true);
+
+    if(autoAdvance){
+      if(step === 'day') setActiveStep('month');
+      else if(step === 'month') setActiveStep('year');
+    }
+  };
   // scroll to selected
   scrollWheelToValue(p.wheel, String(selectedValue), false);
 
@@ -2095,6 +2084,31 @@ function buildSingleWheel(step){
   if(!p.wheel._bound){
     p.wheel._bound = true;
     p.wheel.tabIndex = 0;
+    // click-to-select: choose the clicked option (or nearest to click position)
+    p.wheel.addEventListener('click', (e) => {
+      const opts = Array.from(p.wheel.children);
+      if(!opts.length) return;
+
+      let opt = null;
+      if(e.target && e.target.closest) opt = e.target.closest('.wopt');
+      if(!opt || !p.wheel.contains(opt)){
+        // fallback: pick nearest option to the click point
+        const y = e.clientY;
+        let best = null, bestDist = Infinity;
+        opts.forEach(o => {
+          const r = o.getBoundingClientRect();
+          const cy = r.top + r.height/2;
+          const d = Math.abs(cy - y);
+          if(d < bestDist){ bestDist = d; best = o; }
+        });
+        opt = best;
+      }
+
+      if(opt && opt.dataset && opt.dataset.value != null && typeof p.wheel._applyChoice === 'function'){
+        p.wheel._applyChoice(opt.dataset.value, true);
+      }
+    });
+
 
     const stepBy = (dir, jump=1) => {
       const opts = Array.from(p.wheel.children);
@@ -2156,7 +2170,7 @@ function buildSingleWheel(step){
         e.preventDefault();
         const cur = getClosestWheelValue(p.wheel);
         const el = Array.from(p.wheel.children).find(o => o.dataset.value === String(cur));
-        if(el) el.click();
+        if(el && typeof p.wheel._applyChoice === 'function') p.wheel._applyChoice(el.dataset.value, true);
       }
     });
   }
