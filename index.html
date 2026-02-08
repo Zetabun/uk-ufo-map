@@ -2054,7 +2054,7 @@ function buildSingleWheel(step){
 
   // expose a step-aware chooser for delegated clicks / keyboard
   p.wheel._wheelStep = step;
-  p.wheel._applyChoice = (valueStr, autoAdvance=true) => {
+  p.wheel._applyChoice = (valueStr, autoAdvance=false) => {
     if(valueStr == null) return;
     const n = parseInt(String(valueStr), 10);
     if(Number.isNaN(n)) return;
@@ -2071,7 +2071,7 @@ function buildSingleWheel(step){
 
     if(p.text) p.text.value = formatUKDate(pickerState.year, pickerState.month, pickerState.day);
 
-    scrollWheelToValue(p.wheel, String(n), false);
+    scrollWheelToValue(p.wheel, String(n), true);
 
     if(autoAdvance){
       if(step === 'day') setActiveStep('month');
@@ -2144,27 +2144,85 @@ function buildSingleWheel(step){
       if(!opts.length) return;
       if(e.button != null && e.button !== 0) return;
 
-      const rect = wheelEl.getBoundingClientRect();
-      const cs = window.getComputedStyle(wheelEl);
-      const padTop = parseFloat(cs.paddingTop || '0') || 0;
-      const itemH = opts[0].offsetHeight || 42;
+      // Attach pointer handlers once (so we don't stack listeners on rebuild)
+    if(!p.wheel._opacePointerHandlers){
+      p.wheel._opacePointerHandlers = true;
 
-      // position within the scroll content (excluding padding)
-      const y = (e.clientY - rect.top) + wheelEl.scrollTop - padTop;
+      p.wheel.addEventListener('pointerdown', (e) => {
+        const wheelEl = p.wheel;
+        const opts = Array.from(wheelEl.children);
+        if(!opts.length) return;
+        if(e.button != null && e.button !== 0) return;
 
-      // pick the row by index (uniform item height)
-      let idx = Math.floor(y / itemH);
-      idx = Math.max(0, Math.min(opts.length - 1, idx));
-      const opt = opts[idx];
+        // Capture so pointerup fires even if the pointer leaves the wheel.
+        try{ wheelEl.setPointerCapture(e.pointerId); }catch(_){}
 
-      if(opt && opt.dataset && opt.dataset.value != null && typeof wheelEl._applyChoice === 'function'){
-        // Prevent the subsequent click handler from re-selecting the centred item.
-        wheelEl._suppressClick = true;
-        wheelEl._applyChoice(opt.dataset.value, true);
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    }, { capture:true });
+        wheelEl._pd = {
+          id: e.pointerId,
+          type: e.pointerType || 'mouse',
+          y: e.clientY,
+          moved: false
+        };
+
+        // Mouse: apply immediately on press (feels snappy) and suppress click.
+        if((e.pointerType || 'mouse') === 'mouse'){
+          const cs = window.getComputedStyle(wheelEl);
+          const padTop = parseFloat(cs.paddingTop || '0') || 0;
+          const itemH = (wheelEl.children[0] && wheelEl.children[0].offsetHeight) || 42;
+
+          const y = (e.clientY - wheelEl.getBoundingClientRect().top) + wheelEl.scrollTop - padTop;
+          let idx = Math.floor(y / itemH);
+          idx = Math.max(0, Math.min(opts.length - 1, idx));
+          const opt = opts[idx];
+
+          if(opt && opt.dataset && opt.dataset.value != null && typeof wheelEl._applyChoice === 'function'){
+            wheelEl._suppressClick = true;
+            wheelEl._applyChoice(opt.dataset.value, true);
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        }
+      }, { capture:true });
+
+      p.wheel.addEventListener('pointermove', (e) => {
+        const wheelEl = p.wheel;
+        if(!wheelEl._pd || wheelEl._pd.id !== e.pointerId) return;
+        if(Math.abs(e.clientY - wheelEl._pd.y) > 6) wheelEl._pd.moved = true;
+      }, { passive:true });
+
+      p.wheel.addEventListener('pointerup', (e) => {
+        const wheelEl = p.wheel;
+        if(!wheelEl._pd || wheelEl._pd.id !== e.pointerId) return;
+
+        const pd = wheelEl._pd;
+        wheelEl._pd = null;
+
+        // Touch/pen tap: select the tapped row (without blocking scroll).
+        if((pd.type === 'touch' || pd.type === 'pen') && !pd.moved){
+          const opts = Array.from(wheelEl.children);
+          if(!opts.length) return;
+
+          const cs = window.getComputedStyle(wheelEl);
+          const padTop = parseFloat(cs.paddingTop || '0') || 0;
+          const itemH = (wheelEl.children[0] && wheelEl.children[0].offsetHeight) || 42;
+
+          const y = (e.clientY - wheelEl.getBoundingClientRect().top) + wheelEl.scrollTop - padTop;
+          let idx = Math.floor(y / itemH);
+          idx = Math.max(0, Math.min(opts.length - 1, idx));
+          const opt = opts[idx];
+
+          if(opt && opt.dataset && opt.dataset.value != null && typeof wheelEl._applyChoice === 'function'){
+            wheelEl._suppressClick = true;
+            wheelEl._applyChoice(opt.dataset.value, true);
+          }
+        }
+      }, { passive:true });
+
+      p.wheel.addEventListener('pointercancel', (e) => {
+        const wheelEl = p.wheel;
+        if(wheelEl._pd && wheelEl._pd.id === e.pointerId) wheelEl._pd = null;
+      }, { passive:true });
+    }
 
 
 const stepBy = (dir, jump=1) => {
