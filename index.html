@@ -2138,14 +2138,7 @@ function buildSingleWheel(step){
 
 
     // pointerdown-to-select (more reliable than click on desktop in scroll-snap + padded wheels)
-    p.wheel.addEventListener('pointerdown', (e) => {
-      const wheelEl = p.wheel;
-      const opts = Array.from(wheelEl.children);
-      if(!opts.length) return;
-      if(e.button != null && e.button !== 0) return;
-
-      // Attach pointer handlers once (so we don't stack listeners on rebuild)
-    if(!p.wheel._opacePointerHandlers){
+        if(!p.wheel._opacePointerHandlers){
       p.wheel._opacePointerHandlers = true;
 
       p.wheel.addEventListener('pointerdown', (e) => {
