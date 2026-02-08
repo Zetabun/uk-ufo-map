@@ -1967,20 +1967,21 @@ function scrollWheelToValue(wheelEl, valueStr, smooth){
   if(!wheelEl) return;
   let sel = `.wopt[data-value="${valueStr}"]`;
   if(window.CSS && CSS.escape){
-    sel = `.wopt[data-value="${CSS.escape(valueStr)}"]`;
+    sel = `.wopt[data-value="${CSS.escape(String(valueStr))}"]`;
   }
   const target = wheelEl.querySelector(sel);
   if(!target) return;
 
-  const wheelRect = wheelEl.getBoundingClientRect();
-  const tgtRect = target.getBoundingClientRect();
-  const offset = (tgtRect.top - wheelRect.top) - (wheelRect.height/2 - tgtRect.height/2);
-  const nextTop = wheelEl.scrollTop + offset;
+  // Use layout metrics (offsetTop) rather than getBoundingClientRect to avoid
+  // transformed/overlay hitbox issues on desktop.
+  const itemH = target.offsetHeight || 42;
+  const wheelH = wheelEl.clientHeight || 210;
+  const top = Math.max(0, target.offsetTop - Math.round((wheelH - itemH)/2));
 
   try{
-    wheelEl.scrollTo({ top: nextTop, behavior: smooth ? 'smooth' : 'auto' });
+    wheelEl.scrollTo({ top, behavior: smooth ? 'smooth' : 'auto' });
   }catch(e){
-    wheelEl.scrollTop = nextTop;
+    wheelEl.scrollTop = top;
   }
 }
 
