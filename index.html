@@ -2686,7 +2686,15 @@ function escapeHtml(str){
     return `
       <div class="popup-inner">
         <h3>${escapeHtml(r.case)}</h3>
-        <button type="button" class="popup-date js-popup-date" data-id="${escapeHtml(r.id)}" aria-label="Filter to this day" style="background:none;border:0;padding:0;margin:0;color:#1d4ed8;font:inherit;text-decoration:underline;cursor:pointer;">${escapeHtml(r.date || '')}</button>${r.time ? `<span class="popup-time" style="margin-left:6px;color:#6b7280;font-size:12px;">${escapeHtml(r.time)}</span>` : ``}
+        <button type="button" class="popup-date js-popup-date" data-id="${escapeHtml(r.id)}" aria-label="Filter to this day" style="background:none;border:0;padding:0;margin:0;color:#1d4ed8;font:inherit;text-decoration:underline;cursor:pointer;">${escapeHtml(r.date || '')}</button>${r.time ? (() => {
+          const t = escapeHtml(r.time);
+          if(r.time_conflict && r.time_alt){
+            const alt = escapeHtml(r.time_alt);
+            const src = (r.time_source === 'date') ? 'Date field' : 'Time field';
+            return `<span class="popup-time" style="margin-left:6px;color:#6b7280;font-size:12px;" title="Time fields conflict: showing ${src} (${t}). Other value: ${alt}.">${t}<span aria-hidden="true" style="margin-left:2px;opacity:.8">*</span></span>`;
+          }
+          return `<span class="popup-time" style="margin-left:6px;color:#6b7280;font-size:12px;">${t}</span>`;
+        })() : ``}
         ${tags}
         ${weatherBlock}
         <div style="font-size:13px;line-height:1.45">
@@ -3297,7 +3305,50 @@ function buildCropExtraDetailsHTML(r){
     };
 
 
-    // Compute a robust datetime (ms since epoch) for filtering + playback.
+    
+    // Clean up date/time display to avoid duplicate time strings in popups.
+// Some rows include a timestamp in the Date field (e.g. "2005-09-14 23:15:00") AND also a separate Time field ("23:15").
+// We treat the *embedded time in Date* as the most likely "source of truth" (it usually comes directly from the report line),
+// but we preserve any differing Time column value so we can surface conflicts in the UI.
+(function(){
+  const d0 = String(out.date || '').trim();
+  const t0 = String(out.time || '').trim();
+
+  // Match "YYYY-MM-DD HH:MM" or "YYYY-MM-DDTHH:MM" (optional :SS, .ms, Z)
+  const m = d0.match(/^(\d{4}-\d{2}-\d{2})[T\s]+(\d{2}:\d{2})(?::\d{2})?(?:\.\d+)?(?:Z)?$/);
+  if(m){
+    const datePart = m[1];
+    const embeddedHHMM = m[2];
+
+    out.date = datePart;
+
+    const norm = (hhmm) => String(hhmm || '').trim().slice(0,5);
+    const tNorm = norm(t0);
+    const eNorm = norm(embeddedHHMM);
+
+    // If there's a separate Time column and it differs, record the conflict.
+    if(tNorm && eNorm && tNorm !== eNorm){
+      out.time_conflict = true;
+      out.time_alt = tNorm;          // from Time column
+      out.time = eNorm;              // embedded in Date (preferred)
+      out.time_source = 'date';
+    } else {
+      // No conflict; prefer whichever exists (embedded first)
+      out.time = eNorm || tNorm || '';
+      out.time_source = eNorm ? 'date' : (tNorm ? 'time' : '');
+      out.time_conflict = false;
+      out.time_alt = '';
+    }
+    return;
+  }
+
+  // No embedded time in Date; keep Time column as-is
+  out.time_source = t0 ? 'time' : '';
+  out.time_conflict = false;
+  out.time_alt = '';
+})();
+
+// Compute a robust datetime (ms since epoch) for filtering + playback.
     // Preference: Date_ISO → Date + Time → Year fallback.
     const yFallback = safeYear(getField(r, ['Date_ISO','date_iso','Date','date','Year','year']));
     const dt = parseRecordDateTime(out.date_iso, out.date, out.time, yFallback);
