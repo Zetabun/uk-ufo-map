@@ -1354,6 +1354,27 @@ if(heatmapHelpBtn && heatmapHelpBubble){
 
   // Map
   const map = L.map('map', { zoomControl: true }).setView([54.5, -3.0], 6);
+
+  // Ensure popups are fully visible (Leaflet auto-pan can be skipped during animations)
+  function panPopupIntoView(popup){
+    try{
+      if(!popup) return;
+      const ll = popup.getLatLng ? popup.getLatLng() : null;
+      if(!ll) return;
+
+      // Defer until after the popup DOM is in place + any map animation tick
+      window.requestAnimationFrame(() => {
+        try{
+          map.panInside(ll, {
+            paddingTopLeft: [32, 32],
+            paddingBottomRight: [32, 32],
+            animate: true
+          });
+        } catch(e) {}
+      });
+    } catch(e) {}
+  }
+
   // When a popup opens, make its date line clickable to set a single-day filter.
   map.on('popupopen', (e) => {
     try {
@@ -1375,6 +1396,8 @@ if(heatmapHelpBtn && heatmapHelpBubble){
         if(rec) setSingleDayFromRecord(rec);
       });
     } catch(err) {}
+    // Always nudge the map so the popup isn't clipped
+    panPopupIntoView(e && e.popup);
   });
 
   // Pane for flight paths so lines sit above tiles/markers and stay visible
@@ -2893,12 +2916,12 @@ function recomputeDateRangeBounds(){
           if (cluster && typeof cluster.zoomToShowLayer === 'function') {
             cluster.zoomToShowLayer(mk, () => {
               map.flyTo(mk.getLatLng(), targetZoom, { animate: true, duration: 0.6 });
-              mk.openPopup();
+              map.once('moveend', () => { try { mk.openPopup(); } catch(e) {} });
               highlightListItem(r.id);
             });
           } else {
             map.flyTo(mk.getLatLng(), targetZoom, { animate: true, duration: 0.6 });
-            mk.openPopup();
+            map.once('moveend', () => { try { mk.openPopup(); } catch(e) {} });
             highlightListItem(r.id);
           }
         }
