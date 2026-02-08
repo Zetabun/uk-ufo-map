@@ -1984,6 +1984,38 @@ function scrollWheelToValue(wheelEl, valueStr, smooth){
   }
 }
 
+function getClosestWheelValue(wheelEl){
+  if(!wheelEl) return null;
+  const opts = Array.from(wheelEl.children);
+  if(!opts.length) return null;
+
+  const wheelRect = wheelEl.getBoundingClientRect();
+  const centerY = wheelRect.top + (wheelRect.height / 2);
+
+  let best = null;
+  let bestDist = Infinity;
+
+  opts.forEach(o => {
+    const r = o.getBoundingClientRect();
+    const cy = r.top + (r.height / 2);
+    const dist = Math.abs(cy - centerY);
+    if(dist < bestDist){
+      bestDist = dist;
+      best = o;
+    }
+  });
+
+  if(best && best.dataset && best.dataset.value != null) return best.dataset.value;
+  return null;
+}
+
+function snapWheel(wheelEl){
+  if(!wheelEl) return;
+  const v = getClosestWheelValue(wheelEl);
+  if(v == null) return;
+  scrollWheelToValue(wheelEl, String(v), true);
+}
+
 function buildSingleWheel(step){
   const p = getPickerEls();
   if(!p || !p.wheel) return;
@@ -2741,40 +2773,51 @@ function highlightListItem(id){
       els.yearMax.textContent = currentYearMax;
 
 
-      // Keep date window within the selected year range (without destroying the user's chosen day/month).
-      if(isSyncingYearSlider){
-        render();
-        return;
-      }
+      
+  // Keep date window in sync with the selected year range.
+  // If the user moves the year slider, reflect that change into the date selection (and not only clamping).
+  if(isSyncingYearSlider){
+    render();
+    return;
+  }
 
-      if(Number.isFinite(boundsDateMinMs) && Number.isFinite(boundsDateMaxMs)){
-        const yrMinMs = Date.UTC(currentYearMin, 0, 1, 0, 0, 0, 0);
-        const yrMaxMs = Date.UTC(currentYearMax, 11, 31, 23, 59, 59, 999);
+  // Helpers: preserve month/day when changing year (clamp invalid days like Feb 29).
+  const setYearKeepMD = (ms, year, endOfDay=false) => {
+    if(!Number.isFinite(ms)) return ms;
+    const d = new Date(ms);
+    const mth = d.getMonth();   // 0-11 local
+    let day = d.getDate();      // 1-31 local
+    const maxD = new Date(year, mth + 1, 0).getDate();
+    if(day > maxD) day = maxD;
+    return new Date(year, mth, day, endOfDay?23:0, endOfDay?59:0, endOfDay?59:0, endOfDay?999:0).getTime();
+  };
 
-        // If dates haven't been set yet, initialise to year bounds.
-        if(!Number.isFinite(currentDateMinMs)) currentDateMinMs = Math.max(boundsDateMinMs, yrMinMs);
-        if(!Number.isFinite(currentDateMaxMs)) currentDateMaxMs = Math.min(boundsDateMaxMs, yrMaxMs);
+  if(Number.isFinite(boundsDateMinMs) && Number.isFinite(boundsDateMaxMs)){
+    const yrMinMs = new Date(currentYearMin, 0, 1, 0, 0, 0, 0).getTime();
+    const yrMaxMs = new Date(currentYearMax, 11, 31, 23, 59, 59, 999).getTime();
 
-        // Clamp the current selection to the new year bounds
-        currentDateMinMs = Math.max(currentDateMinMs, yrMinMs);
-        currentDateMaxMs = Math.min(currentDateMaxMs, yrMaxMs);
+    // If dates haven't been set yet, initialise to year bounds.
+    if(!Number.isFinite(currentDateMinMs)) currentDateMinMs = Math.max(boundsDateMinMs, yrMinMs);
+    if(!Number.isFinite(currentDateMaxMs)) currentDateMaxMs = Math.min(boundsDateMaxMs, yrMaxMs);
 
-        // In single-date mode, keep the 24h window
-        if(!dateRangeEnabled){
-          currentDateMaxMs = Math.min(currentDateMaxMs, currentDateMinMs + SINGLE_WINDOW_MS);
-        }
+    // Reflect the slider years into the selection (preserve chosen month/day where possible).
+    currentDateMinMs = setYearKeepMD(currentDateMinMs, currentYearMin, false);
+    if(dateRangeEnabled){
+      currentDateMaxMs = setYearKeepMD(currentDateMaxMs, currentYearMax, true);
+    } else {
+      // In single-date mode, keep the 24h window semantics.
+      currentDateMaxMs = currentDateMinMs + SINGLE_WINDOW_MS;
+    }
 
-        // Ensure consistent ordering and clamp to loaded bounds
-        clampDateWindow();
+    // Ensure consistent ordering and clamp to loaded bounds
+    clampDateWindow();
 
-        // Reflect into inputs (without triggering additional slider sync loops)
-        if(els.dateFrom) els.dateFrom.value = toLocalDateDisplay(currentDateMinMs);
-        if(els.dateTo) els.dateTo.value = toLocalDateDisplay(currentDateMaxMs);
-        if(els.dateSingle) els.dateSingle.value = toLocalDateDisplay(currentDateMinMs);
-      }
+    // Reflect into inputs
+    updateDateUI();
+  }
 
-      render();
-    });
+  render();
+});
   } else {
     // If it already exists, update the bounds and clamp current values.
     const s = els.yearSlider.noUiSlider;
