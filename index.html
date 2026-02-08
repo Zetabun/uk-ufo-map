@@ -323,6 +323,78 @@ select:focus {
 .layer-hint{font-size:12px;color:var(--muted);line-height:1.35;margin-top:6px}
 
 
+
+
+
+/* --- iOS-style date wheel picker --- */
+.modal-overlay{
+  position:fixed; inset:0;
+  background:rgba(0,0,0,0.55);
+  display:none;
+  align-items:flex-end;
+  justify-content:center;
+  z-index:9999;
+  padding:16px;
+}
+.modal-overlay.show{display:flex;}
+.modal-card{
+  width:min(820px, 100%);
+  background: rgba(20, 24, 33, 0.96);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 18px;
+  box-shadow: 0 30px 80px rgba(0,0,0,0.55);
+  padding: 12px 12px 14px;
+  backdrop-filter: blur(10px);
+}
+.modal-head{
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  padding: 4px 4px 10px;
+}
+.btn-ghost{
+  background: transparent;
+  border-color: rgba(255,255,255,0.18);
+}
+.wheel-wrap{
+  position:relative;
+  display:grid;
+  grid-template-columns: 1.2fr 0.9fr 1.0fr 0.8fr 0.9fr;
+  gap:10px;
+  padding: 8px 6px;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.04);
+  overflow:hidden;
+  min-height: 220px;
+}
+.wheel-highlight{
+  position:absolute; left:0; right:0;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 42px;
+  border-top: 1px solid rgba(255,255,255,0.18);
+  border-bottom: 1px solid rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.06);
+  pointer-events:none;
+}
+.wheel-col{
+  height: 220px;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  padding: 88px 6px; /* creates space so center aligns nicely */
+  border-radius: 14px;
+}
+.wheel-col::-webkit-scrollbar{width:0;height:0}
+.wopt{
+  height: 42px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  scroll-snap-align: center;
+  font-weight: 600;
+  color: rgba(255,255,255,0.88);
+}
+.wopt.dim{color: rgba(255,255,255,0.55); font-weight: 500;}
+.wheel-col:focus{outline:none; box-shadow: 0 0 0 4px rgba(96,165,250,0.12);}
 /* --- POI bubbles (airports / bases) --- */
 .poi-icon{
   width: 30px;
@@ -935,42 +1007,62 @@ select:focus {
 
 <div style="height:12px"></div>
 
-    <div class="card" id="dateCard">
-      <div class="row" style="justify-content:space-between;align-items:center;gap:10px">
-        <div style="font-weight:700">Date range</div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <button type="button" class="btn" id="playBtn" title="Play through the current date window">▶ Play</button>
-        </div>
+    
+<div class="card" id="dateCard">
+  <div class="row" style="justify-content:space-between;align-items:center;gap:10px">
+    <div style="font-weight:700">Date</div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button type="button" class="btn" id="playBtn" title="Play through the current date window">▶ Play</button>
+    </div>
+  </div>
+
+  <div class="toggle-row" style="margin-top:10px">
+    <div>
+      <div style="font-weight:600">Use date range</div>
+      <div class="label">Toggle between a single date window and a From/To range.</div>
+    </div>
+    <label class="switch" title="Toggle date range mode">
+      <input type="checkbox" id="toggleDateRange" checked />
+      <span class="slider"></span>
+    </label>
+  </div>
+
+  <div style="height:10px"></div>
+
+  <div id="dateSingleWrap" style="display:none">
+    <label for="dateSingle">Date</label>
+    <input id="dateSingle" type="text" inputmode="numeric" autocomplete="off" readonly />
+    <div class="hint" style="margin-top:6px">Single-date mode uses a 24‑hour window starting from the selected date/time.</div>
+  </div>
+
+  <div id="dateRangeWrap">
+    <div class="grid-2">
+      <div>
+        <label for="dateFrom">From</label>
+        <input id="dateFrom" type="text" inputmode="numeric" autocomplete="off" readonly />
       </div>
-
-      <div style="height:10px"></div>
-
-      <div class="grid-2">
-        <div>
-          <label for="dateFrom">From</label>
-          <input id="dateFrom" type="datetime-local" />
-        </div>
-        <div>
-          <label for="dateTo">To</label>
-          <input id="dateTo" type="datetime-local" />
-        </div>
+      <div>
+        <label for="dateTo">To</label>
+        <input id="dateTo" type="text" inputmode="numeric" autocomplete="off" readonly />
       </div>
+    </div>
+  </div>
 
-      <div style="height:10px"></div>
+  <div style="height:10px"></div>
 
-      <div class="row" style="justify-content:space-between;align-items:center">
-        <div class="hint" id="dateHint">Use the controls above for fine-grained filtering (day/month/time/year). The year slider below remains as a coarse filter.</div>
-        <div style="display:flex;gap:10px;align-items:center">
-          <label class="label" style="margin:0">Speed</label>
-          <select id="playSpeed" title="Playback speed">
-            <option value="1200">Slow</option>
-            <option value="700" selected>Normal</option>
-            <option value="350">Fast</option>
-          </select>
-        </div>
-      </div>
+  <div class="row" style="justify-content:space-between;align-items:center">
+    <div class="hint" id="dateHint">Tap a date field to pick day/month/year/time (iOS-style wheel).</div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <label class="label" style="margin:0">Speed</label>
+      <select id="playSpeed" title="Playback speed">
+        <option value="1200">Slow</option>
+        <option value="700" selected>Normal</option>
+        <option value="350">Fast</option>
+      </select>
+    </div>
+  </div>
 
-      <div style="height:12px"></div>
+  <div style="height:12px"></div>
 
       <label>Year range (coarse)</label>
       <div class="slider-wrap"><div id="yearSlider"></div></div>
@@ -1114,6 +1206,13 @@ select:focus {
     resetBtn: document.getElementById('resetBtn'),
     dateFrom: document.getElementById('dateFrom'),
     dateTo: document.getElementById('dateTo'),
+    dateSingle: document.getElementById('dateSingle'),
+    toggleDateRange: document.getElementById('toggleDateRange'),
+    dateRangeWrap: document.getElementById('dateRangeWrap'),
+    dateSingleWrap: document.getElementById('dateSingleWrap'),
+    datePickerModal: document.getElementById('datePickerModal'),
+    datePickerCancel: document.getElementById('datePickerCancel'),
+    datePickerDone: document.getElementById('datePickerDone'),
     playBtn: document.getElementById('playBtn'),
     playSpeed: document.getElementById('playSpeed'),
     yearSlider: document.getElementById('yearSlider'),
@@ -1685,6 +1784,212 @@ let isPlaying = false;
     return `${y}-${mo}-${da}T${hh}:${mm}`;
   }
 
+
+
+// Date mode: range vs single-date (24h window)
+let dateRangeEnabled = true;
+const SINGLE_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+function clampDateWindow(){
+  if(!Number.isFinite(boundsDateMinMs) || !Number.isFinite(boundsDateMaxMs)) return;
+
+  // If single mode, enforce a 24h window
+  if(!dateRangeEnabled){
+    if(!Number.isFinite(currentDateMinMs)) currentDateMinMs = boundsDateMinMs;
+    currentDateMaxMs = currentDateMinMs + SINGLE_WINDOW_MS;
+  }
+
+  // Clamp within bounds
+  if(Number.isFinite(currentDateMinMs)) currentDateMinMs = Math.max(boundsDateMinMs, Math.min(boundsDateMaxMs, currentDateMinMs));
+  if(Number.isFinite(currentDateMaxMs)) currentDateMaxMs = Math.max(boundsDateMinMs, Math.min(boundsDateMaxMs, currentDateMaxMs));
+
+  // Ensure order
+  if(Number.isFinite(currentDateMinMs) && Number.isFinite(currentDateMaxMs) && currentDateMinMs > currentDateMaxMs){
+    const t = currentDateMinMs; currentDateMinMs = currentDateMaxMs; currentDateMaxMs = t;
+  }
+
+  // If single mode, re-apply 24h window after clamps
+  if(!dateRangeEnabled){
+    currentDateMaxMs = Math.min(boundsDateMaxMs, currentDateMinMs + SINGLE_WINDOW_MS);
+  }
+}
+
+function updateDateUI(){
+  if(els.toggleDateRange) dateRangeEnabled = !!els.toggleDateRange.checked;
+
+  if(els.dateRangeWrap) els.dateRangeWrap.style.display = dateRangeEnabled ? '' : 'none';
+  if(els.dateSingleWrap) els.dateSingleWrap.style.display = dateRangeEnabled ? 'none' : '';
+
+  // Keep underlying window consistent with mode
+  clampDateWindow();
+
+  const fromVal = toLocalInputValue(currentDateMinMs);
+  const toVal = toLocalInputValue(currentDateMaxMs);
+
+  if(els.dateFrom) els.dateFrom.value = fromVal.replace('T',' ');
+  if(els.dateTo) els.dateTo.value = toVal.replace('T',' ');
+  if(els.dateSingle) els.dateSingle.value = fromVal.replace('T',' ');
+}
+
+// ---------- iOS-style wheel date picker ----------
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function daysInMonth(year, monthIndex){
+  return new Date(year, monthIndex + 1, 0).getDate();
+}
+
+function buildWheel(colEl, values, formatFn, selectedValue){
+  colEl.innerHTML = '';
+  values.forEach(v => {
+    const div = document.createElement('div');
+    div.className = 'wopt';
+    div.dataset.value = String(v);
+    div.textContent = formatFn ? formatFn(v) : String(v);
+    colEl.appendChild(div);
+  });
+
+  // scroll to selected
+  const target = Array.from(colEl.children).find(ch => ch.dataset.value === String(selectedValue));
+  if(target){
+    const top = target.offsetTop - (colEl.clientHeight/2) + (target.clientHeight/2);
+    colEl.scrollTop = Math.max(0, top);
+  }
+}
+
+function getClosestWheelValue(colEl){
+  // Find element closest to vertical center
+  const center = colEl.scrollTop + colEl.clientHeight / 2;
+  let best = null, bestDist = Infinity;
+  Array.from(colEl.children).forEach(ch => {
+    const mid = ch.offsetTop + ch.clientHeight / 2;
+    const dist = Math.abs(mid - center);
+    if(dist < bestDist){ bestDist = dist; best = ch; }
+  });
+  return best ? best.dataset.value : null;
+}
+
+function snapWheel(colEl){
+  const v = getClosestWheelValue(colEl);
+  if(v == null) return;
+  const ch = Array.from(colEl.children).find(x => x.dataset.value === v);
+  if(!ch) return;
+  const top = ch.offsetTop - (colEl.clientHeight/2) + (ch.clientHeight/2);
+  colEl.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+}
+
+let datePickerTarget = null; // 'from' | 'to' | 'single'
+let pickerState = { year: 2020, month: 0, day: 1, hour: 12, minute: 0 };
+
+function openDatePicker(target){
+  if(!els.datePickerModal) return;
+  datePickerTarget = target;
+
+  // Determine initial ms
+  let baseMs = currentDateMinMs;
+  if(target === 'to') baseMs = currentDateMaxMs;
+  if(!Number.isFinite(baseMs)) baseMs = boundsDateMinMs;
+
+  const d = new Date(baseMs);
+  pickerState.year = d.getFullYear();
+  pickerState.month = d.getMonth();
+  pickerState.day = d.getDate();
+  pickerState.hour = d.getHours();
+  pickerState.minute = d.getMinutes();
+
+  const yMin = Number.isFinite(boundsDateMinMs) ? new Date(boundsDateMinMs).getFullYear() : 1900;
+  const yMax = Number.isFinite(boundsDateMaxMs) ? new Date(boundsDateMaxMs).getFullYear() : new Date().getFullYear();
+
+  const colMonth = els.datePickerModal.querySelector('[data-wheel="month"]');
+  const colDay = els.datePickerModal.querySelector('[data-wheel="day"]');
+  const colYear = els.datePickerModal.querySelector('[data-wheel="year"]');
+  const colHour = els.datePickerModal.querySelector('[data-wheel="hour"]');
+  const colMinute = els.datePickerModal.querySelector('[data-wheel="minute"]');
+
+  buildWheel(colMonth, [...Array(12).keys()], (m)=>MONTHS[m], pickerState.month);
+  buildWheel(colYear, Array.from({length: (yMax - yMin + 1)}, (_,i)=>yMin+i), null, pickerState.year);
+  buildWheel(colHour, Array.from({length:24},(_,i)=>i), (h)=>String(h).padStart(2,'0'), pickerState.hour);
+  buildWheel(colMinute, Array.from({length:60},(_,i)=>i), (m)=>String(m).padStart(2,'0'), pickerState.minute);
+
+  // day depends on month/year
+  const maxD = daysInMonth(pickerState.year, pickerState.month);
+  pickerState.day = Math.min(pickerState.day, maxD);
+  buildWheel(colDay, Array.from({length:maxD},(_,i)=>i+1), null, pickerState.day);
+
+  const onWheelScroll = (colEl, kind) => {
+    // debounce snapping
+    let t = colEl._snapTimer;
+    if(t) clearTimeout(t);
+    colEl._snapTimer = setTimeout(() => {
+      snapWheel(colEl);
+      const v = getClosestWheelValue(colEl);
+      if(v == null) return;
+      const n = parseInt(v, 10);
+      if(kind === 'month') pickerState.month = n;
+      if(kind === 'day') pickerState.day = n;
+      if(kind === 'year') pickerState.year = n;
+      if(kind === 'hour') pickerState.hour = n;
+      if(kind === 'minute') pickerState.minute = n;
+
+      // If year/month changed, refresh day wheel
+      if(kind === 'month' || kind === 'year'){
+        const maxD2 = daysInMonth(pickerState.year, pickerState.month);
+        pickerState.day = Math.min(pickerState.day, maxD2);
+        buildWheel(colDay, Array.from({length:maxD2},(_,i)=>i+1), null, pickerState.day);
+      }
+    }, 90);
+  };
+
+  // attach listeners (idempotent)
+  const bind = (colEl, kind) => {
+    if(!colEl) return;
+    if(colEl._bound) return;
+    colEl._bound = true;
+    colEl.addEventListener('scroll', () => onWheelScroll(colEl, kind), { passive: true });
+    colEl.addEventListener('touchend', () => onWheelScroll(colEl, kind), { passive: true });
+    colEl.addEventListener('mouseup', () => onWheelScroll(colEl, kind));
+  };
+
+  bind(colMonth,'month'); bind(colDay,'day'); bind(colYear,'year'); bind(colHour,'hour'); bind(colMinute,'minute');
+
+  els.datePickerModal.classList.add('show');
+  els.datePickerModal.setAttribute('aria-hidden','false');
+}
+
+function closeDatePicker(){
+  if(!els.datePickerModal) return;
+  els.datePickerModal.classList.remove('show');
+  els.datePickerModal.setAttribute('aria-hidden','true');
+  datePickerTarget = null;
+}
+
+function applyDatePicker(){
+  // Compose local datetime
+  const d = new Date(pickerState.year, pickerState.month, pickerState.day, pickerState.hour, pickerState.minute, 0, 0);
+  const ms = d.getTime();
+
+  if(datePickerTarget === 'to'){
+    currentDateMaxMs = ms;
+    // keep ordering
+    if(Number.isFinite(currentDateMinMs) && currentDateMaxMs < currentDateMinMs){
+      currentDateMinMs = currentDateMaxMs;
+    }
+  } else {
+    currentDateMinMs = ms;
+    if(dateRangeEnabled){
+      // if in range mode and from > to, carry to along
+      if(Number.isFinite(currentDateMaxMs) && currentDateMinMs > currentDateMaxMs){
+        currentDateMaxMs = currentDateMinMs;
+      }
+    } else {
+      currentDateMaxMs = currentDateMinMs + SINGLE_WINDOW_MS;
+    }
+  }
+
+  clampDateWindow();
+  updateDateUI();
+  render();
+}
+
   function parseLocalInputToMs(val){
     const s = String(val || '').trim();
     if(!s) return null;
@@ -2001,8 +2306,7 @@ function recomputeDateRangeBounds(){
   }
 
   // Sync inputs without triggering loops
-  if(els.dateFrom) els.dateFrom.value = toLocalInputValue(currentDateMinMs);
-  if(els.dateTo) els.dateTo.value = toLocalInputValue(currentDateMaxMs);
+  updateDateUI();
 }
 
 function stopPlayback(){
@@ -2015,17 +2319,42 @@ function stopPlayback(){
   }
 }
 
+
 function startPlayback(){
   if(!Number.isFinite(boundsDateMinMs) || !Number.isFinite(boundsDateMaxMs)) return;
+
+  // Ensure UI/mode is applied
+  if(els.toggleDateRange) dateRangeEnabled = !!els.toggleDateRange.checked;
+
   if(!Number.isFinite(currentDateMinMs) || !Number.isFinite(currentDateMaxMs)){
     currentDateMinMs = boundsDateMinMs;
-    currentDateMaxMs = boundsDateMaxMs;
+    currentDateMaxMs = dateRangeEnabled ? boundsDateMaxMs : Math.min(boundsDateMaxMs, boundsDateMinMs + SINGLE_WINDOW_MS);
   }
 
-  // Ensure a sensible window; default to 1 day if range collapsed.
+  // Window size depends on mode
   let windowMs = Math.max(1, currentDateMaxMs - currentDateMinMs);
-  const minWindow = 60 * 60 * 1000; // 1 hour
-  if(windowMs < minWindow) windowMs = minWindow;
+  if(!dateRangeEnabled){
+    windowMs = SINGLE_WINDOW_MS;
+    currentDateMaxMs = Math.min(boundsDateMaxMs, currentDateMinMs + windowMs);
+  } else {
+    // avoid a collapsed window
+    const minWindow = 60 * 60 * 1000; // 1 hour
+    if(windowMs < minWindow) windowMs = minWindow;
+  }
+
+  // Playback step: move through the window smoothly (not jumping by the whole window)
+  let stepMs;
+  if(windowMs >= 30 * 24 * 60 * 60 * 1000) stepMs = 7 * 24 * 60 * 60 * 1000;         // >= 30 days => weekly
+  else if(windowMs >= 7 * 24 * 60 * 60 * 1000) stepMs = 24 * 60 * 60 * 1000;          // >= 7 days => daily
+  else if(windowMs >= 24 * 60 * 60 * 1000) stepMs = 6 * 60 * 60 * 1000;               // >= 1 day => 6 hours
+  else if(windowMs >= 6 * 60 * 60 * 1000) stepMs = 60 * 60 * 1000;                    // >= 6 hours => 1 hour
+  else stepMs = 15 * 60 * 1000;                                                       // otherwise => 15 mins
+
+  // Start from the first valid window fully within bounds
+  if(currentDateMinMs < boundsDateMinMs || currentDateMinMs > boundsDateMaxMs){
+    currentDateMinMs = boundsDateMinMs;
+  }
+  currentDateMaxMs = Math.min(boundsDateMaxMs, currentDateMinMs + windowMs);
 
   isPlaying = true;
   if(els.playBtn){
@@ -2035,33 +2364,30 @@ function startPlayback(){
 
   const speed = els.playSpeed ? parseInt(els.playSpeed.value, 10) : 700;
 
-  // Start from the earliest possible window within the bounds (nice for first-time play).
-  if(currentDateMinMs <= boundsDateMinMs || currentDateMinMs >= boundsDateMaxMs){
-    currentDateMinMs = boundsDateMinMs;
-    currentDateMaxMs = Math.min(boundsDateMaxMs, boundsDateMinMs + windowMs);
-  }
+  // Ensure previous timer cleared
+  if(playTimer) clearInterval(playTimer);
 
   playTimer = setInterval(() => {
     if(!isPlaying) return;
 
-    const nextMin = currentDateMinMs + windowMs;
-    const nextMax = currentDateMaxMs + windowMs;
+    const nextMin = currentDateMinMs + stepMs;
 
+    // If next window would start beyond bounds, snap to last window and stop
     if(nextMin >= boundsDateMaxMs){
-      // End reached — snap to last window and stop.
       currentDateMaxMs = boundsDateMaxMs;
       currentDateMinMs = Math.max(boundsDateMinMs, boundsDateMaxMs - windowMs);
-      if(els.dateFrom) els.dateFrom.value = toLocalInputValue(currentDateMinMs);
-      if(els.dateTo) els.dateTo.value = toLocalInputValue(currentDateMaxMs);
+      clampDateWindow();
+      updateDateUI();
       render();
       stopPlayback();
       return;
     }
 
     currentDateMinMs = nextMin;
-    currentDateMaxMs = Math.min(boundsDateMaxMs, nextMax);
-    if(els.dateFrom) els.dateFrom.value = toLocalInputValue(currentDateMinMs);
-    if(els.dateTo) els.dateTo.value = toLocalInputValue(currentDateMaxMs);
+    currentDateMaxMs = Math.min(boundsDateMaxMs, currentDateMinMs + windowMs);
+
+    clampDateWindow();
+    updateDateUI();
     render();
   }, Number.isFinite(speed) ? speed : 700);
 }
@@ -2708,44 +3034,35 @@ function parseCsvToRows(csvUrl){
     els.minCred.addEventListener(evt, () => { stopPlayback(); render(); });
     if(els.encounter) els.encounter.addEventListener(evt, () => { stopPlayback(); render(); });
 
-    if(els.dateFrom) els.dateFrom.addEventListener(evt, () => {
-      stopPlayback();
-      const ms = parseLocalInputToMs(els.dateFrom.value);
-      if(Number.isFinite(ms)) currentDateMinMs = ms;
-      if(Number.isFinite(currentDateMinMs) && Number.isFinite(currentDateMaxMs) && currentDateMinMs > currentDateMaxMs){
-        const tmp = currentDateMinMs; currentDateMinMs = currentDateMaxMs; currentDateMaxMs = tmp;
-        if(els.dateFrom) els.dateFrom.value = toLocalInputValue(currentDateMinMs);
-        if(els.dateTo) els.dateTo.value = toLocalInputValue(currentDateMaxMs);
-      }
-      // Keep the year slider roughly in sync
-      if(Number.isFinite(currentDateMinMs) && Number.isFinite(currentDateMaxMs)){
-        currentYearMin = new Date(currentDateMinMs).getUTCFullYear();
-        currentYearMax = new Date(currentDateMaxMs).getUTCFullYear();
-        if(els.yearSlider && els.yearSlider.noUiSlider){
-          els.yearSlider.noUiSlider.set([currentYearMin, currentYearMax]);
-        }
-      }
-      render();
-    });
+// Date picker (wheel) interactions
+if(els.toggleDateRange){
+  els.toggleDateRange.addEventListener('change', () => {
+    stopPlayback();
+    updateDateUI();
+    render();
+  });
+}
 
-    if(els.dateTo) els.dateTo.addEventListener(evt, () => {
-      stopPlayback();
-      const ms = parseLocalInputToMs(els.dateTo.value);
-      if(Number.isFinite(ms)) currentDateMaxMs = ms;
-      if(Number.isFinite(currentDateMinMs) && Number.isFinite(currentDateMaxMs) && currentDateMinMs > currentDateMaxMs){
-        const tmp = currentDateMinMs; currentDateMinMs = currentDateMaxMs; currentDateMaxMs = tmp;
-        if(els.dateFrom) els.dateFrom.value = toLocalInputValue(currentDateMinMs);
-        if(els.dateTo) els.dateTo.value = toLocalInputValue(currentDateMaxMs);
-      }
-      if(Number.isFinite(currentDateMinMs) && Number.isFinite(currentDateMaxMs)){
-        currentYearMin = new Date(currentDateMinMs).getUTCFullYear();
-        currentYearMax = new Date(currentDateMaxMs).getUTCFullYear();
-        if(els.yearSlider && els.yearSlider.noUiSlider){
-          els.yearSlider.noUiSlider.set([currentYearMin, currentYearMax]);
-        }
-      }
-      render();
-    });
+if(els.dateFrom){
+  els.dateFrom.addEventListener('click', () => { stopPlayback(); openDatePicker('from'); });
+  els.dateFrom.addEventListener('keydown', (e) => { if(e.key === 'Enter' || e.key === ' ') { e.preventDefault(); stopPlayback(); openDatePicker('from'); }});
+}
+if(els.dateTo){
+  els.dateTo.addEventListener('click', () => { stopPlayback(); openDatePicker('to'); });
+  els.dateTo.addEventListener('keydown', (e) => { if(e.key === 'Enter' || e.key === ' ') { e.preventDefault(); stopPlayback(); openDatePicker('to'); }});
+}
+if(els.dateSingle){
+  els.dateSingle.addEventListener('click', () => { stopPlayback(); openDatePicker('single'); });
+  els.dateSingle.addEventListener('keydown', (e) => { if(e.key === 'Enter' || e.key === ' ') { e.preventDefault(); stopPlayback(); openDatePicker('single'); }});
+}
+
+if(els.datePickerCancel) els.datePickerCancel.addEventListener('click', () => closeDatePicker());
+if(els.datePickerDone) els.datePickerDone.addEventListener('click', () => { applyDatePicker(); closeDatePicker(); });
+if(els.datePickerModal){
+  els.datePickerModal.addEventListener('click', (e) => {
+    if(e.target === els.datePickerModal) closeDatePicker();
+  });
+}
   });
 
   els.fitBtn.addEventListener('click', () => { fitToMarkers(); fixMapSizeSoon(); });
@@ -2888,6 +3205,29 @@ function parseCsvToRows(csvUrl){
   });
 })();
 </script>
+
+<!-- iOS-style date/time wheel picker -->
+<div id="datePickerModal" class="modal-overlay" aria-hidden="true">
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="datePickerTitle">
+    <div class="modal-head">
+      <button class="btn btn-ghost" type="button" id="datePickerCancel">Cancel</button>
+      <div id="datePickerTitle" style="font-weight:700">Select date & time</div>
+      <button class="btn" type="button" id="datePickerDone">Done</button>
+    </div>
+
+    <div class="wheel-wrap">
+      <div class="wheel-highlight"></div>
+
+      <div class="wheel-col" data-wheel="month" aria-label="Month"></div>
+      <div class="wheel-col" data-wheel="day" aria-label="Day"></div>
+      <div class="wheel-col" data-wheel="year" aria-label="Year"></div>
+      <div class="wheel-col" data-wheel="hour" aria-label="Hour"></div>
+      <div class="wheel-col" data-wheel="minute" aria-label="Minute"></div>
+    </div>
+
+    <div class="hint" style="margin-top:10px">Scroll each column, then tap Done.</div>
+  </div>
+</div>
 
 </body>
 </html>
