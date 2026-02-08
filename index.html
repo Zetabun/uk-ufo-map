@@ -211,6 +211,28 @@ html, body {
   margin: 0 0 12px 0;
 }
 
+/* Clickable date inside case popups */
+.leaflet-popup-content button.js-popup-date{
+  appearance: none;
+  -webkit-appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: #2563eb !important; /* blue */
+  text-decoration: underline;
+  cursor: pointer;
+}
+.leaflet-popup-content button.js-popup-date:hover{
+  color: #1d4ed8 !important;
+}
+.leaflet-popup-content button.js-popup-date:focus{
+  outline: 2px solid rgba(37,99,235,.35);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
 /* Section labels */
 .leaflet-popup-content .k{
   font-weight: 700;
