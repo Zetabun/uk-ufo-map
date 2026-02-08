@@ -1179,6 +1179,29 @@ select:focus {
   </main>
 </div>
 
+<!-- iOS-style date/time wheel picker -->
+<div id="datePickerModal" class="modal-overlay" aria-hidden="true">
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="datePickerTitle">
+    <div class="modal-head">
+      <button class="btn btn-ghost" type="button" id="datePickerCancel">Cancel</button>
+      <div id="datePickerTitle" style="font-weight:700">Select date & time</div>
+      <button class="btn" type="button" id="datePickerDone">Done</button>
+    </div>
+
+    <div class="wheel-wrap">
+      <div class="wheel-highlight"></div>
+
+      <div class="wheel-col" data-wheel="month" aria-label="Month"></div>
+      <div class="wheel-col" data-wheel="day" aria-label="Day"></div>
+      <div class="wheel-col" data-wheel="year" aria-label="Year"></div>
+      <div class="wheel-col" data-wheel="hour" aria-label="Hour"></div>
+      <div class="wheel-col" data-wheel="minute" aria-label="Minute"></div>
+    </div>
+
+    <div class="hint" style="margin-top:10px">Scroll each column, then tap Done.</div>
+  </div>
+</div>
+
 <script>
 (function(){
   // ==== CONFIG ====
@@ -3205,29 +3228,6 @@ if(els.datePickerModal){
   });
 })();
 </script>
-
-<!-- iOS-style date/time wheel picker -->
-<div id="datePickerModal" class="modal-overlay" aria-hidden="true">
-  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="datePickerTitle">
-    <div class="modal-head">
-      <button class="btn btn-ghost" type="button" id="datePickerCancel">Cancel</button>
-      <div id="datePickerTitle" style="font-weight:700">Select date & time</div>
-      <button class="btn" type="button" id="datePickerDone">Done</button>
-    </div>
-
-    <div class="wheel-wrap">
-      <div class="wheel-highlight"></div>
-
-      <div class="wheel-col" data-wheel="month" aria-label="Month"></div>
-      <div class="wheel-col" data-wheel="day" aria-label="Day"></div>
-      <div class="wheel-col" data-wheel="year" aria-label="Year"></div>
-      <div class="wheel-col" data-wheel="hour" aria-label="Hour"></div>
-      <div class="wheel-col" data-wheel="minute" aria-label="Minute"></div>
-    </div>
-
-    <div class="hint" style="margin-top:10px">Scroll each column, then tap Done.</div>
-  </div>
-</div>
 
 </body>
 </html>
