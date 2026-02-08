@@ -2655,7 +2655,7 @@ function escapeHtml(str){
     return `
       <div class="popup-inner">
         <h3>${escapeHtml(r.case)}</h3>
-        <button type="button" class="popup-date js-popup-date" data-id="${escapeHtml(r.id)}" aria-label="Filter to this day" style="background:none;border:0;padding:0;margin:0;color:inherit;font:inherit;text-decoration:underline;cursor:pointer;">${escapeHtml(r.date || '')}${r.time ? ` • ${escapeHtml(r.time)}` : ''}</button>
+        <button type="button" class="popup-date js-popup-date" data-id="${escapeHtml(r.id)}" aria-label="Filter to this day" style="background:none;border:0;padding:0;margin:0;color:inherit;font:inherit;text-decoration:underline;cursor:pointer;">${escapeHtml(r.date || '')}</button>${r.time ? `<span class="popup-time" style="margin-left:6px;color:#6b7280;font-size:12px;">${escapeHtml(r.time)}</span>` : ``}
         ${tags}
         ${weatherBlock}
         <div style="font-size:13px;line-height:1.45">
