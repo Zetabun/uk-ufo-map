@@ -2086,24 +2086,37 @@ function buildSingleWheel(step){
     p.wheel.tabIndex = 0;
     // click-to-select: choose the clicked option (or nearest to click position)
     p.wheel.addEventListener('click', (e) => {
-      const opts = Array.from(p.wheel.children);
+      const wheelEl = p.wheel;
+      const opts = Array.from(wheelEl.children);
       if(!opts.length) return;
 
-      // Prefer an actual hit-tested option (more reliable than target/closest on some layouts)
+      // 1) Try direct hit-testing first
       let opt = null;
       if(document.elementsFromPoint){
         const stack = document.elementsFromPoint(e.clientX, e.clientY);
-        opt = stack && stack.find(el => el && el.classList && el.classList.contains('wopt') && p.wheel.contains(el));
+        opt = stack && stack.find(el => el && el.classList && el.classList.contains('wopt') && wheelEl.contains(el));
       }
       if(!opt && e.target && e.target.closest){
-        opt = e.target.closest('.wopt');
-        if(opt && !p.wheel.contains(opt)) opt = null;
+        const c = e.target.closest('.wopt');
+        if(c && wheelEl.contains(c)) opt = c;
       }
 
+      // 2) If hit-testing fails (common on desktop with scroll-snap/padding), compute the clicked row
       if(!opt){
-        // fallback: pick nearest option to the click point
+        const rect = wheelEl.getBoundingClientRect();
+        const yInWheel = (e.clientY - rect.top) + wheelEl.scrollTop; // includes scroll position
+        opt = opts.find(o => {
+          const top = o.offsetTop;
+          const h = o.offsetHeight || 42;
+          return yInWheel >= top && yInWheel < (top + h);
+        }) || null;
+      }
+
+      // 3) Final fallback: nearest to click Y by bounding boxes
+      if(!opt){
         const y = e.clientY;
-        let best = null, bestDist = Infinity;
+        let best = null;
+        let bestDist = Infinity;
         opts.forEach(o => {
           const r = o.getBoundingClientRect();
           const cy = r.top + r.height/2;
@@ -2113,14 +2126,13 @@ function buildSingleWheel(step){
         opt = best;
       }
 
-      if(opt && opt.dataset && opt.dataset.value != null && typeof p.wheel._applyChoice === 'function'){
-        // Apply immediately (no smooth scroll) so state changes before auto-advance
-        p.wheel._applyChoice(opt.dataset.value, true);
+      if(opt && opt.dataset && opt.dataset.value != null && typeof wheelEl._applyChoice === 'function'){
+        // Apply immediately so state changes before auto-advance
+        wheelEl._applyChoice(opt.dataset.value, true);
       }
     });
 
-
-    const stepBy = (dir, jump=1) => {
+const stepBy = (dir, jump=1) => {
       const opts = Array.from(p.wheel.children);
       if(!opts.length) return;
 
