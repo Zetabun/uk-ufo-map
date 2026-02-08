@@ -1062,10 +1062,13 @@ select:focus {
       <div style="font-weight:600">Use date range</div>
       <div class="label">Toggle between a single date window and a From/To range.</div>
     </div>
-    <label class="switch" title="Toggle date range mode">
-      <input type="checkbox" id="toggleDateRange" checked />
-      <span class="slider"></span>
-    </label>
+    <div style="display:flex;gap:8px;align-items:center">
+      <label class="switch" title="Toggle date range mode">
+        <input type="checkbox" id="toggleDateRange" checked />
+        <span class="slider"></span>
+      </label>
+      <button class="btn" id="clearDateRangeBtn" title="Reset date filter to full range">Clear</button>
+    </div>
   </div>
 
   <div style="height:10px"></div>
@@ -1274,6 +1277,7 @@ function stopPlayback(){ /* no-op */ }
     dateTo: document.getElementById('dateTo'),
     dateSingle: document.getElementById('dateSingle'),
     toggleDateRange: document.getElementById('toggleDateRange'),
+    clearDateRangeBtn: document.getElementById('clearDateRangeBtn'),
     dateRangeWrap: document.getElementById('dateRangeWrap'),
     dateSingleWrap: document.getElementById('dateSingleWrap'),
     datePickerModal: document.getElementById('datePickerModal'),
@@ -3481,6 +3485,29 @@ function parseCsvToRows(csvUrl){
 if(els.toggleDateRange){
   els.toggleDateRange.addEventListener('change', () => {
     stopPlayback();
+
+    // When re-enabling range mode, reset to the full available range
+    if(els.toggleDateRange.checked && Number.isFinite(boundsDateMinMs) && Number.isFinite(boundsDateMaxMs)){
+      currentDateMinMs = boundsDateMinMs;
+      currentDateMaxMs = boundsDateMaxMs;
+    }
+
+    updateDateUI();
+    syncYearSliderToDateWindow();
+    render();
+  });
+}
+
+if(els.clearDateRangeBtn){
+  els.clearDateRangeBtn.addEventListener('click', () => {
+    stopPlayback();
+    if(els.toggleDateRange) els.toggleDateRange.checked = true;
+    dateRangeEnabled = true;
+
+    if(Number.isFinite(boundsDateMinMs) && Number.isFinite(boundsDateMaxMs)){
+      currentDateMinMs = boundsDateMinMs;
+      currentDateMaxMs = boundsDateMaxMs;
+    }
     updateDateUI();
     syncYearSliderToDateWindow();
     render();
