@@ -1323,6 +1323,29 @@ if(heatmapHelpBtn && heatmapHelpBubble){
 
   // Map
   const map = L.map('map', { zoomControl: true }).setView([54.5, -3.0], 6);
+  // When a popup opens, make its date line clickable to set a single-day filter.
+  map.on('popupopen', (e) => {
+    try {
+      const root = e && e.popup && e.popup.getElement ? e.popup.getElement() : null;
+      if(!root) return;
+      const btn = root.querySelector('.js-popup-date');
+      if(!btn) return;
+
+      // Prevent stacking listeners if Leaflet reuses DOM
+      if(btn.dataset && btn.dataset.boundClick === '1') return;
+      if(btn.dataset) btn.dataset.boundClick = '1';
+
+      btn.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        const id = btn.getAttribute('data-id');
+        if(!id) return;
+        const rec = recordIndex.get(String(id));
+        if(rec) setSingleDayFromRecord(rec);
+      });
+    } catch(err) {}
+  });
+
   // Pane for flight paths so lines sit above tiles/markers and stay visible
   map.createPane('flightPathsPane');
   map.getPane('flightPathsPane').style.zIndex = 450;
@@ -1663,6 +1686,7 @@ if(heatmapHelpBtn && heatmapHelpBubble){
   let ufoRecords = [];
   let cropRecords = [];
   let cropLoaded = false;
+  const recordIndex = new Map();
 
   // `records` is the ACTIVE dataset used for rendering (based on toggles).
   // `recordsAll` is everything currently loaded (used for slider range / totals).
@@ -2631,7 +2655,7 @@ function escapeHtml(str){
     return `
       <div class="popup-inner">
         <h3>${escapeHtml(r.case)}</h3>
-        <p class="popup-date">${escapeHtml(r.date || '')}${r.time ? ` • ${escapeHtml(r.time)}` : ''}</p>
+        <button type="button" class="popup-date js-popup-date" data-id="${escapeHtml(r.id)}" aria-label="Filter to this day" style="background:none;border:0;padding:0;margin:0;color:inherit;font:inherit;text-decoration:underline;cursor:pointer;">${escapeHtml(r.date || '')}${r.time ? ` • ${escapeHtml(r.time)}` : ''}</button>
         ${tags}
         ${weatherBlock}
         <div style="font-size:13px;line-height:1.45">
@@ -2796,7 +2820,7 @@ function recomputeDateRangeBounds(){
       } else {
         const m = makeCircleMarker(r.lat, r.lon, r);
         m.bindPopup(makePopupHTML(r), { maxWidth: 420 });
-        m.on('click', () => { highlightListItem(r.id); setSingleDayFromRecord(r); });
+        m.on('click', () => { highlightListItem(r.id); });
         cluster.addLayer(m);
         markersById.set(r.id, m);
       }
@@ -3270,6 +3294,8 @@ function buildCropExtraDetailsHTML(r){
     const fixed = normaliseCoords(out.lat, out.lon);
     out.lat = fixed.lat;
     out.lon = fixed.lon;
+    // Index for fast lookup (e.g., clicking popup date)
+    try { recordIndex.set(String(out.id), out); } catch(e) {}
 
     return out;
   }
