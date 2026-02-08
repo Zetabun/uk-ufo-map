@@ -2132,7 +2132,7 @@ function buildSingleWheel(step){
 
       if(opt && opt.dataset && opt.dataset.value != null && typeof wheelEl._applyChoice === 'function'){
         // Apply immediately so state changes before auto-advance
-        wheelEl._applyChoice(opt.dataset.value, true);
+        wheelEl._applyChoice(opt.dataset.value, false);
       }
     });
 
@@ -2170,7 +2170,7 @@ function buildSingleWheel(step){
 
           if(opt && opt.dataset && opt.dataset.value != null && typeof wheelEl._applyChoice === 'function'){
             wheelEl._suppressClick = true;
-            wheelEl._applyChoice(opt.dataset.value, true);
+            wheelEl._applyChoice(opt.dataset.value, false);
             e.preventDefault();
             e.stopPropagation();
           }
@@ -2206,7 +2206,7 @@ function buildSingleWheel(step){
 
           if(opt && opt.dataset && opt.dataset.value != null && typeof wheelEl._applyChoice === 'function'){
             wheelEl._suppressClick = true;
-            wheelEl._applyChoice(opt.dataset.value, true);
+            wheelEl._applyChoice(opt.dataset.value, false);
           }
         }
       }, { passive:true });
@@ -2278,7 +2278,7 @@ const stepBy = (dir, jump=1) => {
         e.preventDefault();
         const cur = getClosestWheelValue(p.wheel);
         const el = Array.from(p.wheel.children).find(o => o.dataset.value === String(cur));
-        if(el && typeof p.wheel._applyChoice === 'function') p.wheel._applyChoice(el.dataset.value, true);
+        if(el && typeof p.wheel._applyChoice === 'function') p.wheel._applyChoice(el.dataset.value, false);
       }
     });
   }
