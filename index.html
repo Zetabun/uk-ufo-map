@@ -1011,9 +1011,6 @@ select:focus {
 <div class="card" id="dateCard">
   <div class="row" style="justify-content:space-between;align-items:center;gap:10px">
     <div style="font-weight:700">Date</div>
-    <div style="display:flex;gap:8px;align-items:center">
-      <button type="button" class="btn" id="playBtn" title="Play through the current date window">▶ Play</button>
-    </div>
   </div>
 
   <div class="toggle-row" style="margin-top:10px">
@@ -1049,19 +1046,6 @@ select:focus {
   </div>
 
   <div style="height:10px"></div>
-
-  <div class="row" style="justify-content:space-between;align-items:center">
-    <div class="hint" id="dateHint">Tap a date field to pick day/month/year/time (iOS-style wheel).</div>
-    <div style="display:flex;gap:10px;align-items:center">
-      <label class="label" style="margin:0">Speed</label>
-      <select id="playSpeed" title="Playback speed">
-        <option value="1200">Slow</option>
-        <option value="700" selected>Normal</option>
-        <option value="350">Fast</option>
-      </select>
-    </div>
-  </div>
-
   <div style="height:12px"></div>
 
       <label>Year range (coarse)</label>
@@ -1184,7 +1168,7 @@ select:focus {
   <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="datePickerTitle">
     <div class="modal-head">
       <button class="btn btn-ghost" type="button" id="datePickerCancel">Cancel</button>
-      <div id="datePickerTitle" style="font-weight:700">Select date & time</div>
+      <div id="datePickerTitle" style="font-weight:700">Select date</div>
       <button class="btn" type="button" id="datePickerDone">Done</button>
     </div>
 
@@ -1194,8 +1178,6 @@ select:focus {
       <div class="wheel-col" data-wheel="month" aria-label="Month"></div>
       <div class="wheel-col" data-wheel="day" aria-label="Day"></div>
       <div class="wheel-col" data-wheel="year" aria-label="Year"></div>
-      <div class="wheel-col" data-wheel="hour" aria-label="Hour"></div>
-      <div class="wheel-col" data-wheel="minute" aria-label="Minute"></div>
     </div>
 
     <div class="hint" style="margin-top:10px">Scroll each column, then tap Done.</div>
@@ -1236,8 +1218,6 @@ select:focus {
     datePickerModal: document.getElementById('datePickerModal'),
     datePickerCancel: document.getElementById('datePickerCancel'),
     datePickerDone: document.getElementById('datePickerDone'),
-    playBtn: document.getElementById('playBtn'),
-    playSpeed: document.getElementById('playSpeed'),
     yearSlider: document.getElementById('yearSlider'),
     yearMin: document.getElementById('yearMin'),
     yearMax: document.getElementById('yearMax'),
@@ -1635,9 +1615,6 @@ if(heatmapHelpBtn && heatmapHelpBubble){
 let boundsDateMinMs = null, boundsDateMaxMs = null;
 let currentDateMinMs = null, currentDateMaxMs = null;
 
-// Playback state
-let playTimer = null;
-let isPlaying = false;
 
   // UK-ish bounds (used to detect swapped coordinates / bad geocodes)
   const UK_SOFT_BOUNDS = { minLat: 45.0, maxLat: 65.0, minLon: -12.0, maxLon: 6.0 };
@@ -1794,17 +1771,14 @@ let isPlaying = false;
     return null;
   }
 
-  function toLocalInputValue(ms){
+  function toLocalDateDisplay(ms){
     if(!Number.isFinite(ms)) return '';
     const d = new Date(ms);
     const pad = (n) => String(n).padStart(2,'0');
-    // datetime-local expects local time without timezone suffix
-    const y = d.getFullYear();
-    const mo = pad(d.getMonth()+1);
     const da = pad(d.getDate());
-    const hh = pad(d.getHours());
-    const mm = pad(d.getMinutes());
-    return `${y}-${mo}-${da}T${hh}:${mm}`;
+    const mo = pad(d.getMonth()+1);
+    const y = d.getFullYear();
+    return `${da}/${mo}/${y}`;
   }
 
 
@@ -1846,12 +1820,12 @@ function updateDateUI(){
   // Keep underlying window consistent with mode
   clampDateWindow();
 
-  const fromVal = toLocalInputValue(currentDateMinMs);
-  const toVal = toLocalInputValue(currentDateMaxMs);
+  const fromVal = toLocalDateDisplay(currentDateMinMs);
+  const toVal = toLocalDateDisplay(currentDateMaxMs);
 
-  if(els.dateFrom) els.dateFrom.value = fromVal.replace('T',' ');
-  if(els.dateTo) els.dateTo.value = toVal.replace('T',' ');
-  if(els.dateSingle) els.dateSingle.value = fromVal.replace('T',' ');
+  if(els.dateFrom) els.dateFrom.value = fromVal;
+  if(els.dateTo) els.dateTo.value = toVal;
+  if(els.dateSingle) els.dateSingle.value = fromVal;
 }
 
 // ---------- iOS-style wheel date picker ----------
@@ -1901,7 +1875,7 @@ function snapWheel(colEl){
 }
 
 let datePickerTarget = null; // 'from' | 'to' | 'single'
-let pickerState = { year: 2020, month: 0, day: 1, hour: 12, minute: 0 };
+let pickerState = { year: 2020, month: 0, day: 1 };
 
 function openDatePicker(target){
   if(!els.datePickerModal) return;
@@ -1916,8 +1890,6 @@ function openDatePicker(target){
   pickerState.year = d.getFullYear();
   pickerState.month = d.getMonth();
   pickerState.day = d.getDate();
-  pickerState.hour = d.getHours();
-  pickerState.minute = d.getMinutes();
 
   const yMin = Number.isFinite(boundsDateMinMs) ? new Date(boundsDateMinMs).getFullYear() : 1900;
   const yMax = Number.isFinite(boundsDateMaxMs) ? new Date(boundsDateMaxMs).getFullYear() : new Date().getFullYear();
@@ -1925,13 +1897,9 @@ function openDatePicker(target){
   const colMonth = els.datePickerModal.querySelector('[data-wheel="month"]');
   const colDay = els.datePickerModal.querySelector('[data-wheel="day"]');
   const colYear = els.datePickerModal.querySelector('[data-wheel="year"]');
-  const colHour = els.datePickerModal.querySelector('[data-wheel="hour"]');
-  const colMinute = els.datePickerModal.querySelector('[data-wheel="minute"]');
 
   buildWheel(colMonth, [...Array(12).keys()], (m)=>MONTHS[m], pickerState.month);
   buildWheel(colYear, Array.from({length: (yMax - yMin + 1)}, (_,i)=>yMin+i), null, pickerState.year);
-  buildWheel(colHour, Array.from({length:24},(_,i)=>i), (h)=>String(h).padStart(2,'0'), pickerState.hour);
-  buildWheel(colMinute, Array.from({length:60},(_,i)=>i), (m)=>String(m).padStart(2,'0'), pickerState.minute);
 
   // day depends on month/year
   const maxD = daysInMonth(pickerState.year, pickerState.month);
@@ -1950,8 +1918,6 @@ function openDatePicker(target){
       if(kind === 'month') pickerState.month = n;
       if(kind === 'day') pickerState.day = n;
       if(kind === 'year') pickerState.year = n;
-      if(kind === 'hour') pickerState.hour = n;
-      if(kind === 'minute') pickerState.minute = n;
 
       // If year/month changed, refresh day wheel
       if(kind === 'month' || kind === 'year'){
@@ -1972,7 +1938,7 @@ function openDatePicker(target){
     colEl.addEventListener('mouseup', () => onWheelScroll(colEl, kind));
   };
 
-  bind(colMonth,'month'); bind(colDay,'day'); bind(colYear,'year'); bind(colHour,'hour'); bind(colMinute,'minute');
+  bind(colMonth,'month'); bind(colDay,'day'); bind(colYear,'year');
 
   els.datePickerModal.classList.add('show');
   els.datePickerModal.setAttribute('aria-hidden','false');
@@ -1986,18 +1952,20 @@ function closeDatePicker(){
 }
 
 function applyDatePicker(){
-  // Compose local datetime
-  const d = new Date(pickerState.year, pickerState.month, pickerState.day, pickerState.hour, pickerState.minute, 0, 0);
-  const ms = d.getTime();
+  // Compose local date (no time). From = start of day, To = end of day.
+  const start = new Date(pickerState.year, pickerState.month, pickerState.day, 0, 0, 0, 0);
+  const end = new Date(pickerState.year, pickerState.month, pickerState.day, 23, 59, 59, 999);
+  const msStart = start.getTime();
+  const msEnd = end.getTime();
 
   if(datePickerTarget === 'to'){
-    currentDateMaxMs = ms;
+    currentDateMaxMs = msEnd;
     // keep ordering
     if(Number.isFinite(currentDateMinMs) && currentDateMaxMs < currentDateMinMs){
       currentDateMinMs = currentDateMaxMs;
     }
   } else {
-    currentDateMinMs = ms;
+    currentDateMinMs = msStart;
     if(dateRangeEnabled){
       // if in range mode and from > to, carry to along
       if(Number.isFinite(currentDateMaxMs) && currentDateMinMs > currentDateMaxMs){
@@ -2332,92 +2300,6 @@ function recomputeDateRangeBounds(){
   updateDateUI();
 }
 
-function stopPlayback(){
-  isPlaying = false;
-  if(playTimer) clearInterval(playTimer);
-  playTimer = null;
-  if(els.playBtn){
-    els.playBtn.textContent = '▶ Play';
-    els.playBtn.classList.remove('active');
-  }
-}
-
-
-function startPlayback(){
-  if(!Number.isFinite(boundsDateMinMs) || !Number.isFinite(boundsDateMaxMs)) return;
-
-  // Ensure UI/mode is applied
-  if(els.toggleDateRange) dateRangeEnabled = !!els.toggleDateRange.checked;
-
-  if(!Number.isFinite(currentDateMinMs) || !Number.isFinite(currentDateMaxMs)){
-    currentDateMinMs = boundsDateMinMs;
-    currentDateMaxMs = dateRangeEnabled ? boundsDateMaxMs : Math.min(boundsDateMaxMs, boundsDateMinMs + SINGLE_WINDOW_MS);
-  }
-
-  // Window size depends on mode
-  let windowMs = Math.max(1, currentDateMaxMs - currentDateMinMs);
-  if(!dateRangeEnabled){
-    windowMs = SINGLE_WINDOW_MS;
-    currentDateMaxMs = Math.min(boundsDateMaxMs, currentDateMinMs + windowMs);
-  } else {
-    // avoid a collapsed window
-    const minWindow = 60 * 60 * 1000; // 1 hour
-    if(windowMs < minWindow) windowMs = minWindow;
-  }
-
-  // Playback step: move through the window smoothly (not jumping by the whole window)
-  let stepMs;
-  if(windowMs >= 30 * 24 * 60 * 60 * 1000) stepMs = 7 * 24 * 60 * 60 * 1000;         // >= 30 days => weekly
-  else if(windowMs >= 7 * 24 * 60 * 60 * 1000) stepMs = 24 * 60 * 60 * 1000;          // >= 7 days => daily
-  else if(windowMs >= 24 * 60 * 60 * 1000) stepMs = 6 * 60 * 60 * 1000;               // >= 1 day => 6 hours
-  else if(windowMs >= 6 * 60 * 60 * 1000) stepMs = 60 * 60 * 1000;                    // >= 6 hours => 1 hour
-  else stepMs = 15 * 60 * 1000;                                                       // otherwise => 15 mins
-
-  // Start from the first valid window fully within bounds
-  if(currentDateMinMs < boundsDateMinMs || currentDateMinMs > boundsDateMaxMs){
-    currentDateMinMs = boundsDateMinMs;
-  }
-  currentDateMaxMs = Math.min(boundsDateMaxMs, currentDateMinMs + windowMs);
-
-  isPlaying = true;
-  if(els.playBtn){
-    els.playBtn.textContent = '⏸ Pause';
-    els.playBtn.classList.add('active');
-  }
-
-  const speed = els.playSpeed ? parseInt(els.playSpeed.value, 10) : 700;
-
-  // Ensure previous timer cleared
-  if(playTimer) clearInterval(playTimer);
-
-  playTimer = setInterval(() => {
-    if(!isPlaying) return;
-
-    const nextMin = currentDateMinMs + stepMs;
-
-    // If next window would start beyond bounds, snap to last window and stop
-    if(nextMin >= boundsDateMaxMs){
-      currentDateMaxMs = boundsDateMaxMs;
-      currentDateMinMs = Math.max(boundsDateMinMs, boundsDateMaxMs - windowMs);
-      clampDateWindow();
-      updateDateUI();
-      render();
-      stopPlayback();
-      return;
-    }
-
-    currentDateMinMs = nextMin;
-    currentDateMaxMs = Math.min(boundsDateMaxMs, currentDateMinMs + windowMs);
-
-    clampDateWindow();
-    updateDateUI();
-    render();
-  }, Number.isFinite(speed) ? speed : 700);
-}
-
-
-
-
   function render(){
     syncActiveRecords();
 
@@ -2586,8 +2468,8 @@ function highlightListItem(id){
         const to = Date.UTC(currentYearMax, 11, 31, 23, 59, 59);
         currentDateMinMs = Math.max(boundsDateMinMs, from);
         currentDateMaxMs = Math.min(boundsDateMaxMs, to);
-        if(els.dateFrom) els.dateFrom.value = toLocalInputValue(currentDateMinMs);
-        if(els.dateTo) els.dateTo.value = toLocalInputValue(currentDateMaxMs);
+        if(els.dateFrom) els.dateFrom.value = toLocalDateDisplay(currentDateMinMs);
+        if(els.dateTo) els.dateTo.value = toLocalDateDisplay(currentDateMaxMs);
       }
 
       render();
@@ -3109,14 +2991,6 @@ if(els.datePickerModal){
     render();
     fitToMarkers();
   });
-
-
-  if(els.playBtn){
-    els.playBtn.addEventListener('click', () => {
-      if(isPlaying) stopPlayback();
-      else startPlayback();
-    });
-  }
 
 
 
