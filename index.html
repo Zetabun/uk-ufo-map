@@ -2091,6 +2091,9 @@ function buildSingleWheel(step){
       const opts = Array.from(wheelEl.children);
       if(!opts.length) return;
 
+      // If pointerdown already handled this click, ignore.
+      if(wheelEl._suppressClick){ wheelEl._suppressClick = false; return; }
+
       // 1) Try direct hit-testing first
       let opt = null;
       if(document.elementsFromPoint){
@@ -2132,6 +2135,37 @@ function buildSingleWheel(step){
         wheelEl._applyChoice(opt.dataset.value, true);
       }
     });
+
+
+    // pointerdown-to-select (more reliable than click on desktop in scroll-snap + padded wheels)
+    p.wheel.addEventListener('pointerdown', (e) => {
+      const wheelEl = p.wheel;
+      const opts = Array.from(wheelEl.children);
+      if(!opts.length) return;
+      if(e.button != null && e.button !== 0) return;
+
+      const rect = wheelEl.getBoundingClientRect();
+      const cs = window.getComputedStyle(wheelEl);
+      const padTop = parseFloat(cs.paddingTop || '0') || 0;
+      const itemH = opts[0].offsetHeight || 42;
+
+      // position within the scroll content (excluding padding)
+      const y = (e.clientY - rect.top) + wheelEl.scrollTop - padTop;
+
+      // pick the row by index (uniform item height)
+      let idx = Math.floor(y / itemH);
+      idx = Math.max(0, Math.min(opts.length - 1, idx));
+      const opt = opts[idx];
+
+      if(opt && opt.dataset && opt.dataset.value != null && typeof wheelEl._applyChoice === 'function'){
+        // Prevent the subsequent click handler from re-selecting the centred item.
+        wheelEl._suppressClick = true;
+        wheelEl._applyChoice(opt.dataset.value, true);
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }, { capture:true });
+
 
 const stepBy = (dir, jump=1) => {
       const opts = Array.from(p.wheel.children);
