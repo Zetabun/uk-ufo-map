@@ -1088,9 +1088,24 @@ select:focus {
 #panel .card label{ color: rgba(229,231,235,.70); }
 #panel .card .hint,
 #panel .card .status,
-#panel .card .layer-hint,
-#panel .card .item .meta{
+#panel .card .layer-hint{
   color: rgba(229,231,235,.65);
+}
+
+/* Highlights list: white inner cards (as per reference) */
+#panel #list .item{
+  background:#ffffff;
+  border:1px solid rgba(15,23,42,.10);
+  box-shadow: 0 10px 24px rgba(0,0,0,.10);
+  color:#0f172a;
+}
+#panel #list .item:hover{ background:#f6f7fb; }
+#panel #list .item .title{ color:#0f172a; }
+#panel #list .item .meta{ color: rgba(15,23,42,.55); }
+#panel #list .pill{
+  border-color: rgba(15,23,42,.14);
+  color: rgba(15,23,42,.70);
+  background: rgba(15,23,42,.04);
 }
 
 /* Inputs as pill controls */
