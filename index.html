@@ -959,6 +959,12 @@ select:focus {
 .popup-images a{ display:block; border-radius:12px; overflow:hidden; border:1px solid rgba(17,24,39,0.12); background:#0b1220; }
 .popup-images img{ width:100%; height:auto; display:block; max-width:100%; }
 .popup-images .single{ grid-column: 1 / -1; }
+
+/* Disable/grey year slider when not applicable */
+.slider-wrap.is-disabled{opacity:.35; position:relative;}
+.slider-wrap.is-disabled::after{content:''; position:absolute; inset:-6px; cursor:not-allowed; background:transparent;}
+#yearSlider[aria-disabled="true"]{pointer-events:none;}
+
 </style>
 </head>
 
@@ -1848,7 +1854,7 @@ function clampDateWindow(){
   // If single mode, enforce a 24h window
   if(!dateRangeEnabled){
     if(!Number.isFinite(currentDateMinMs)) currentDateMinMs = boundsDateMinMs;
-    currentDateMaxMs = currentDateMinMs + SINGLE_WINDOW_MS;
+    currentDateMaxMs = currentDateMinMs + SINGLE_WINDOW_MS - 1;
   }
 
   // Clamp within bounds
@@ -1862,7 +1868,7 @@ function clampDateWindow(){
 
   // If single mode, re-apply 24h window after clamps
   if(!dateRangeEnabled){
-    currentDateMaxMs = Math.min(boundsDateMaxMs, currentDateMinMs + SINGLE_WINDOW_MS);
+    currentDateMaxMs = Math.min(boundsDateMaxMs, currentDateMinMs + SINGLE_WINDOW_MS - 1);
   }
 }
 
@@ -1881,7 +1887,26 @@ function updateDateUI(){
   if(els.dateFrom) els.dateFrom.value = fromVal;
   if(els.dateTo) els.dateTo.value = toVal;
   if(els.dateSingle) els.dateSingle.value = fromVal;
+  // Disable coarse year slider when single-date mode is active
+  setYearSliderEnabled(dateRangeEnabled);
+
 }
+
+
+function setYearSliderEnabled(enabled){
+  try{
+    const wrap = els.yearSlider ? els.yearSlider.closest('.slider-wrap') : null;
+    if(!wrap || !els.yearSlider) return;
+    if(enabled){
+      wrap.classList.remove('is-disabled');
+      els.yearSlider.removeAttribute('aria-disabled');
+    } else {
+      wrap.classList.add('is-disabled');
+      els.yearSlider.setAttribute('aria-disabled','true');
+    }
+  } catch(e){}
+}
+
 
 
 function syncYearSliderToDateWindow(){
@@ -2345,7 +2370,7 @@ function applyDatePicker(){
         currentDateMaxMs = currentDateMinMs;
       }
     } else {
-      currentDateMaxMs = currentDateMinMs + SINGLE_WINDOW_MS;
+      currentDateMaxMs = currentDateMinMs + SINGLE_WINDOW_MS - 1;
     }
   }
 
@@ -2702,6 +2727,27 @@ function escapeHtml(str){
   initYearSlider(minY, maxY);
 }
 
+
+function setSingleDayFromRecord(r){
+  if(!r || !Number.isFinite(r.dt_ms)) return;
+  const d = new Date(r.dt_ms);
+  const start = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0,0,0,0).getTime();
+  const end   = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23,59,59,999).getTime();
+
+  if(els.toggleDateRange){
+    els.toggleDateRange.checked = false;
+  }
+  dateRangeEnabled = false;
+  currentDateMinMs = start;
+  currentDateMaxMs = end;
+
+  clampDateWindow();
+  updateDateUI();
+  syncYearSliderToDateWindow();
+  render();
+}
+
+
 function recomputeDateRangeBounds(){
   const loaded = [...ufoRecords, ...(cropLoaded ? cropRecords : [])];
   const dts = loaded.map(r => r.dt_ms).filter(ms => Number.isFinite(ms));
@@ -2750,7 +2796,7 @@ function recomputeDateRangeBounds(){
       } else {
         const m = makeCircleMarker(r.lat, r.lon, r);
         m.bindPopup(makePopupHTML(r), { maxWidth: 420 });
-        m.on('click', () => highlightListItem(r.id));
+        m.on('click', () => { highlightListItem(r.id); setSingleDayFromRecord(r); });
         cluster.addLayer(m);
         markersById.set(r.id, m);
       }
@@ -2928,7 +2974,7 @@ function highlightListItem(id){
       currentDateMaxMs = setYearKeepMD(currentDateMaxMs, currentYearMax, true);
     } else {
       // In single-date mode, keep the 24h window semantics.
-      currentDateMaxMs = currentDateMinMs + SINGLE_WINDOW_MS;
+      currentDateMaxMs = currentDateMinMs + SINGLE_WINDOW_MS - 1;
     }
 
     // Ensure consistent ordering and clamp to loaded bounds
