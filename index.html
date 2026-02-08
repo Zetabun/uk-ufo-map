@@ -395,6 +395,44 @@ select:focus {
 }
 .wopt.dim{color: rgba(255,255,255,0.55); font-weight: 500;}
 .wheel-col:focus{outline:none; box-shadow: 0 0 0 4px rgba(96,165,250,0.12);}
+
+.picker-steps{
+  display:flex;
+  gap:8px;
+  padding: 2px 6px 10px;
+}
+.step-pill{
+  flex:1;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.86);
+  padding: 8px 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.step-pill.is-active{
+  border-color: rgba(96,165,250,0.55);
+  background: rgba(96,165,250,0.14);
+}
+.wheel-wrap-single{
+  grid-template-columns: 1fr;
+}
+.picker-footer{
+  display:grid;
+  grid-template-columns: 110px 1fr 110px;
+  gap: 10px;
+  align-items: end;
+  margin-top: 10px;
+}
+.picker-type .input{
+  width: 100%;
+}
+@media (max-width: 560px){
+  .picker-footer{ grid-template-columns: 1fr; }
+  #datePickerBack, #datePickerNext{ width:100%; }
+}
+
 /* --- POI bubbles (airports / bases) --- */
 .poi-icon{
   width: 30px;
@@ -1163,7 +1201,7 @@ select:focus {
   </main>
 </div>
 
-<!-- iOS-style date/time wheel picker -->
+<!-- iOS-style date picker (single wheel, step-by-step) -->
 <div id="datePickerModal" class="modal-overlay" aria-hidden="true">
   <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="datePickerTitle">
     <div class="modal-head">
@@ -1172,15 +1210,29 @@ select:focus {
       <button class="btn" type="button" id="datePickerDone">Done</button>
     </div>
 
-    <div class="wheel-wrap">
-      <div class="wheel-highlight"></div>
-
-      <div class="wheel-col" data-wheel="month" aria-label="Month"></div>
-      <div class="wheel-col" data-wheel="day" aria-label="Day"></div>
-      <div class="wheel-col" data-wheel="year" aria-label="Year"></div>
+    <div class="picker-steps" aria-label="Date selection steps">
+      <button type="button" class="step-pill is-active" data-step="day">Day</button>
+      <button type="button" class="step-pill" data-step="month">Month</button>
+      <button type="button" class="step-pill" data-step="year">Year</button>
     </div>
 
-    <div class="hint" style="margin-top:10px">Scroll each column, then tap Done.</div>
+    <div class="wheel-wrap wheel-wrap-single">
+      <div class="wheel-highlight"></div>
+      <div class="wheel-col" data-wheel="single" aria-label="Picker wheel"></div>
+    </div>
+
+    <div class="picker-footer">
+      <button class="btn btn-ghost" type="button" id="datePickerBack">Back</button>
+      <div class="picker-type">
+        <div class="label" style="margin-bottom:6px">Type a date</div>
+        <input id="datePickerText" class="input" inputmode="numeric" placeholder="DD/MM/YYYY" aria-label="Type date as DD/MM/YYYY" />
+        <div class="hint" style="margin-top:6px">You can scroll the wheel or type a date.</div>
+      </div>
+      <button class="btn" type="button" id="datePickerNext">Next</button>
+    </div>
+  </div>
+</div>
+<div class="hint" style="margin-top:10px">Scroll each column, then tap Done.</div>
   </div>
 </div>
 
@@ -1854,214 +1906,265 @@ function syncYearSliderToDateWindow(){
 
 
 // ---------- iOS-style wheel date picker ----------
+
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-function daysInMonth(year, monthIndex){
-  return new Date(year, monthIndex + 1, 0).getDate();
+function daysInMonth(y, mIndex){
+  return new Date(y, mIndex + 1, 0).getDate();
 }
 
+function pad2(n){ return String(n).padStart(2,'0'); }
+function formatUKDate(y,mIndex,d){
+  return `${pad2(d)}/${pad2(mIndex+1)}/${y}`;
+}
+function parseUKDateText(s){
+  const t = String(s || '').trim();
+  if(!t) return null;
+  const m = t.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/);
+  if(!m) return null;
+  const day = parseInt(m[1],10);
+  const mon = parseInt(m[2],10) - 1;
+  const year = parseInt(m[3],10);
+  if(!(year >= 1000 && year <= 9999)) return null;
+  if(mon < 0 || mon > 11) return null;
+  const maxD = daysInMonth(year, mon);
+  if(day < 1 || day > maxD) return null;
+  // start of that day (local)
+  return new Date(year, mon, day, 0, 0, 0, 0).getTime();
+}
 
-function buildWheel(colEl, kind, values, formatFn, selectedValue){
-  colEl.innerHTML = '';
+let datePickerTarget = null; // 'from' | 'to' | 'single'
+let pickerStep = 'day';      // 'day' | 'month' | 'year'
+let pickerBounds = { yMin: 1900, yMax: new Date().getFullYear() };
+let pickerState = { year: 2020, month: 0, day: 1 };
+
+function getPickerEls(){
+  if(!els.datePickerModal) return null;
+  return {
+    modal: els.datePickerModal,
+    wheel: els.datePickerModal.querySelector('[data-wheel="single"]'),
+    pills: Array.from(els.datePickerModal.querySelectorAll('.step-pill')),
+    back: document.getElementById('datePickerBack'),
+    next: document.getElementById('datePickerNext'),
+    text: document.getElementById('datePickerText'),
+    title: document.getElementById('datePickerTitle')
+  };
+}
+
+function setActiveStep(step){
+  const p = getPickerEls();
+  if(!p) return;
+  pickerStep = step;
+  p.pills.forEach(btn => btn.classList.toggle('is-active', btn.dataset.step === step));
+  buildSingleWheel(step);
+  // update buttons
+  if(p.back) p.back.disabled = (step === 'day');
+  if(p.next) p.next.disabled = (step === 'year');
+}
+
+function buildSingleWheel(step){
+  const p = getPickerEls();
+  if(!p || !p.wheel) return;
+
+  // Derive options for this step
+  let values = [];
+  let labelFn = null;
+  let selectedValue = null;
+
+  if(step === 'day'){
+    const maxD = daysInMonth(pickerState.year, pickerState.month);
+    values = Array.from({length:maxD}, (_,i)=>i+1);
+    selectedValue = pickerState.day;
+  } else if(step === 'month'){
+    values = [...Array(12).keys()];
+    labelFn = (m)=>MONTHS[m];
+    selectedValue = pickerState.month;
+  } else {
+    const { yMin, yMax } = pickerBounds;
+    values = Array.from({length: (yMax - yMin + 1)}, (_,i)=>yMin+i);
+    selectedValue = pickerState.year;
+  }
+
+  // Build DOM
+  p.wheel.innerHTML = '';
   values.forEach(v => {
     const div = document.createElement('div');
     div.className = 'wopt';
     div.dataset.value = String(v);
-    div.textContent = formatFn ? formatFn(v) : String(v);
-    div.setAttribute('role','button');
-    div.tabIndex = 0;
+    div.textContent = labelFn ? labelFn(v) : String(v);
 
-    // Click (or Enter/Space) to select exact value — important for desktop precision.
-    const select = () => {
-      scrollWheelToValue(colEl, String(v), true);
-      applyWheelSelectionGlobal(kind);
+    const choose = () => {
+      const n = parseInt(div.dataset.value, 10);
+      if(step === 'day') pickerState.day = n;
+      if(step === 'month'){
+        pickerState.month = n;
+        // clamp day
+        pickerState.day = Math.min(pickerState.day, daysInMonth(pickerState.year, pickerState.month));
+      }
+      if(step === 'year'){
+        pickerState.year = n;
+        // clamp day
+        pickerState.day = Math.min(pickerState.day, daysInMonth(pickerState.year, pickerState.month));
+      }
+
+      // reflect typed box
+      if(p.text) p.text.value = formatUKDate(pickerState.year, pickerState.month, pickerState.day);
+
+      // rebuild day list if month/year changed while on month/year
+      if(step !== 'day'){
+        // if currently viewing month/year, day list will be rebuilt when user returns to day
+      }
+
+      // snap to chosen element
+      scrollWheelToValue(p.wheel, div.dataset.value, true);
+
+      // auto-advance (day -> month -> year)
+      if(step === 'day') setActiveStep('month');
+      else if(step === 'month') setActiveStep('year');
     };
-    div.addEventListener('click', (e) => { e.preventDefault(); select(); });
+
+    div.addEventListener('click', choose);
     div.addEventListener('keydown', (e) => {
       if(e.key === 'Enter' || e.key === ' '){
         e.preventDefault();
-        select();
+        choose();
       }
     });
 
-    colEl.appendChild(div);
+    p.wheel.appendChild(div);
   });
 
   // scroll to selected
-  scrollWheelToValue(colEl, String(selectedValue), false);
-}
+  scrollWheelToValue(p.wheel, String(selectedValue), false);
 
-function scrollWheelToValue(colEl, valueStr, smooth){
-  const target = Array.from(colEl.children).find(ch => ch.dataset.value === String(valueStr));
-  if(!target) return;
-  const top = target.offsetTop - (colEl.clientHeight/2) + (target.clientHeight/2);
-  colEl.scrollTo({ top: Math.max(0, top), behavior: smooth ? 'smooth' : 'auto' });
-}
+  // bind once (wheel scroll behavior)
+  if(!p.wheel._bound){
+    p.wheel._bound = true;
+    p.wheel.tabIndex = 0;
 
+    const stepBy = (dir, jump=1) => {
+      const opts = Array.from(p.wheel.children);
+      if(!opts.length) return;
 
-function getClosestWheelValue(colEl){
-  // Find element closest to vertical center
-  const center = colEl.scrollTop + colEl.clientHeight / 2;
-  let best = null, bestDist = Infinity;
-  Array.from(colEl.children).forEach(ch => {
-    const mid = ch.offsetTop + ch.clientHeight / 2;
-    const dist = Math.abs(mid - center);
-    if(dist < bestDist){ bestDist = dist; best = ch; }
-  });
-  return best ? best.dataset.value : null;
-}
+      // current
+      const curVal = getClosestWheelValue(p.wheel);
+      let idx = opts.findIndex(o => o.dataset.value === String(curVal));
+      if(idx < 0) idx = 0;
 
-function snapWheel(colEl){
-  const v = getClosestWheelValue(colEl);
-  if(v == null) return;
-  const ch = Array.from(colEl.children).find(x => x.dataset.value === v);
-  if(!ch) return;
-  const top = ch.offsetTop - (colEl.clientHeight/2) + (ch.clientHeight/2);
-  colEl.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
-}
+      idx = Math.max(0, Math.min(opts.length - 1, idx + dir*jump));
+      const ch = opts[idx];
+      scrollWheelToValue(p.wheel, ch.dataset.value, true);
 
-// Apply currently centered option to pickerState (and rebuild day wheel if needed).
-function applyWheelSelectionGlobal(kind){
-  const colMonth = els.datePickerModal ? els.datePickerModal.querySelector('[data-wheel="month"]') : null;
-  const colDay = els.datePickerModal ? els.datePickerModal.querySelector('[data-wheel="day"]') : null;
-  const colYear = els.datePickerModal ? els.datePickerModal.querySelector('[data-wheel="year"]') : null;
+      // apply after scroll starts
+      setTimeout(() => {
+        const n = parseInt(ch.dataset.value, 10);
+        if(pickerStep === 'day') pickerState.day = n;
+        if(pickerStep === 'month'){
+          pickerState.month = n;
+          pickerState.day = Math.min(pickerState.day, daysInMonth(pickerState.year, pickerState.month));
+        }
+        if(pickerStep === 'year'){
+          pickerState.year = n;
+          pickerState.day = Math.min(pickerState.day, daysInMonth(pickerState.year, pickerState.month));
+        }
+        if(p.text) p.text.value = formatUKDate(pickerState.year, pickerState.month, pickerState.day);
+      }, 30);
+    };
 
-  const colEl = (kind === 'month') ? colMonth : (kind === 'day') ? colDay : colYear;
-  if(!colEl) return;
+    // scroll snap debounce
+    const onScroll = () => {
+      let t = p.wheel._snapTimer;
+      if(t) clearTimeout(t);
+      p.wheel._snapTimer = setTimeout(() => snapWheel(p.wheel), 90);
+    };
 
-  const v = getClosestWheelValue(colEl);
-  if(v == null) return;
-  const n = parseInt(v, 10);
-  if(kind === 'month') pickerState.month = n;
-  if(kind === 'day') pickerState.day = n;
-  if(kind === 'year') pickerState.year = n;
+    p.wheel.addEventListener('scroll', onScroll, { passive:true });
+    p.wheel.addEventListener('touchend', onScroll, { passive:true });
+    p.wheel.addEventListener('mouseup', onScroll);
 
-  if((kind === 'month' || kind === 'year') && colDay){
-    const maxD = daysInMonth(pickerState.year, pickerState.month);
-    pickerState.day = Math.min(pickerState.day, maxD);
-    buildWheel(colDay, 'day', Array.from({length:maxD},(_,i)=>i+1), null, pickerState.day);
+    // prevent wild jumps: one item per wheel tick
+    p.wheel.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const dir = e.deltaY > 0 ? 1 : -1;
+      stepBy(dir, 1);
+    }, { passive:false });
+
+    // keyboard controls
+    p.wheel.addEventListener('keydown', (e) => {
+      if(e.key === 'ArrowDown'){ e.preventDefault(); stepBy(1,1); }
+      if(e.key === 'ArrowUp'){ e.preventDefault(); stepBy(-1,1); }
+      if(e.key === 'PageDown'){ e.preventDefault(); stepBy(1,5); }
+      if(e.key === 'PageUp'){ e.preventDefault(); stepBy(-1,5); }
+      if(e.key === 'Home'){ e.preventDefault(); stepBy(-1,9999); }
+      if(e.key === 'End'){ e.preventDefault(); stepBy(1,9999); }
+      if(e.key === 'Enter'){
+        // mimic click selection without auto-advance on year
+        e.preventDefault();
+        const cur = getClosestWheelValue(p.wheel);
+        const el = Array.from(p.wheel.children).find(o => o.dataset.value === String(cur));
+        if(el) el.click();
+      }
+    });
   }
 }
 
-let datePickerTarget = null; // 'from' | 'to' | 'single'
-let pickerState = { year: 2020, month: 0, day: 1 };
-
 function openDatePicker(target){
-  if(!els.datePickerModal) return;
+  const p = getPickerEls();
+  if(!p) return;
+
   datePickerTarget = target;
 
-  // Determine initial ms
+  // Determine base date for picker
   let baseMs = currentDateMinMs;
   if(target === 'to') baseMs = currentDateMaxMs;
   if(!Number.isFinite(baseMs)) baseMs = boundsDateMinMs;
+  if(!Number.isFinite(baseMs)) baseMs = Date.now();
 
   const d = new Date(baseMs);
   pickerState.year = d.getFullYear();
   pickerState.month = d.getMonth();
   pickerState.day = d.getDate();
 
-  const yMin = Number.isFinite(boundsDateMinMs) ? new Date(boundsDateMinMs).getFullYear() : 1900;
-  const yMax = Number.isFinite(boundsDateMaxMs) ? new Date(boundsDateMaxMs).getFullYear() : new Date().getFullYear();
+  // bounds for year wheel
+  pickerBounds.yMin = Number.isFinite(boundsDateMinMs) ? new Date(boundsDateMinMs).getFullYear() : 1900;
+  pickerBounds.yMax = Number.isFinite(boundsDateMaxMs) ? new Date(boundsDateMaxMs).getFullYear() : new Date().getFullYear();
 
-  buildWheel(colMonth, 'month', [...Array(12).keys()], (m)=>MONTHS[m], pickerState.month);
-  buildWheel(colYear, 'year', Array.from({length: (yMax - yMin + 1)}, (_,i)=>yMin+i), null, pickerState.year);
+  // title
+  const label = (target === 'from') ? 'Select start date' : (target === 'to') ? 'Select end date' : 'Select date';
+  if(p.title) p.title.textContent = label;
 
-  // day depends on month/year
-  const maxD = daysInMonth(pickerState.year, pickerState.month);
-  pickerState.day = Math.min(pickerState.day, maxD);
-  buildWheel(colDay, 'day', Array.from({length:maxD},(_,i)=>i+1), null, pickerState.day);
+  // typed value
+  if(p.text) p.text.value = formatUKDate(pickerState.year, pickerState.month, pickerState.day);
 
+  setActiveStep('day');
 
-  const colMonth = els.datePickerModal.querySelector('[data-wheel="month"]');
-  const colDay = els.datePickerModal.querySelector('[data-wheel="day"]');
-  const colYear = els.datePickerModal.querySelector('[data-wheel="year"]');
-
-  const onWheelScroll = (colEl, kind) => {
-    // debounce snapping
-    let t = colEl._snapTimer;
-    if(t) clearTimeout(t);
-    colEl._snapTimer = setTimeout(() => {
-      snapWheel(colEl);
-      applyWheelSelectionGlobal(kind);
-    }, 90);
-  };
-
-  const stepWheel = (colEl, kind, dir) => {
-    const opts = Array.from(colEl.children);
-    if(!opts.length) return;
-
-    const curVal = getClosestWheelValue(colEl);
-    let idx = Math.max(0, opts.findIndex(o => o.dataset.value === String(curVal)));
-    if(idx < 0) idx = 0;
-    idx = Math.max(0, Math.min(opts.length - 1, idx + dir));
-    const ch = opts[idx];
-
-    scrollWheelToValue(colEl, ch.dataset.value, true);
-    // Apply selection after the scroll starts
-    setTimeout(() => applyWheelSelectionGlobal(kind), 30);
-  };
-
-  // attach listeners (idempotent)
-  const bind = (colEl, kind) => {
-    if(!colEl) return;
-    if(colEl._bound) return;
-    colEl._bound = true;
-
-    // Smooth snapping after drag/scroll
-    colEl.addEventListener('scroll', () => onWheelScroll(colEl, kind), { passive: true });
-    colEl.addEventListener('touchend', () => onWheelScroll(colEl, kind), { passive: true });
-    colEl.addEventListener('mouseup', () => onWheelScroll(colEl, kind));
-
-    // Desktop mouse wheel: step ONE option at a time (prevents skipping years uncontrollably)
-    colEl.addEventListener('wheel', (e) => {
-      e.preventDefault();
-      const dir = e.deltaY > 0 ? 1 : -1;
-      stepWheel(colEl, kind, dir);
-    }, { passive: false });
-
-    // Keyboard accessibility
-    colEl.tabIndex = 0;
-    colEl.addEventListener('keydown', (e) => {
-      if(e.key === 'ArrowDown'){ e.preventDefault(); stepWheel(colEl, kind, 1); }
-      if(e.key === 'ArrowUp'){ e.preventDefault(); stepWheel(colEl, kind, -1); }
-      if(e.key === 'PageDown'){ e.preventDefault(); stepWheel(colEl, kind, 5); }
-      if(e.key === 'PageUp'){ e.preventDefault(); stepWheel(colEl, kind, -5); }
-      if(e.key === 'Home'){ e.preventDefault(); stepWheel(colEl, kind, -9999); }
-      if(e.key === 'End'){ e.preventDefault(); stepWheel(colEl, kind, 9999); }
-    });
-  };
-
-  bind(colMonth,'month'); bind(colDay,'day'); bind(colYear,'year');
-
-
-  els.datePickerModal.classList.add('show');
-  els.datePickerModal.setAttribute('aria-hidden','false');
+  p.modal.classList.add('show');
+  p.modal.setAttribute('aria-hidden','false');
 }
 
 function closeDatePicker(){
-  if(!els.datePickerModal) return;
-  els.datePickerModal.classList.remove('show');
-  els.datePickerModal.setAttribute('aria-hidden','true');
+  const p = getPickerEls();
+  if(!p) return;
+  p.modal.classList.remove('show');
+  p.modal.setAttribute('aria-hidden','true');
   datePickerTarget = null;
 }
 
 function applyDatePicker(){
-  // Compose local date (no time). From = start of day, To = end of day.
-  const start = new Date(pickerState.year, pickerState.month, pickerState.day, 0, 0, 0, 0);
-  const end = new Date(pickerState.year, pickerState.month, pickerState.day, 23, 59, 59, 999);
+  // start/end of day (local)
+  const start = new Date(pickerState.year, pickerState.month, pickerState.day, 0,0,0,0);
+  const end   = new Date(pickerState.year, pickerState.month, pickerState.day, 23,59,59,999);
   const msStart = start.getTime();
-  const msEnd = end.getTime();
+  const msEnd   = end.getTime();
 
   if(datePickerTarget === 'to'){
     currentDateMaxMs = msEnd;
-    // keep ordering
     if(Number.isFinite(currentDateMinMs) && currentDateMaxMs < currentDateMinMs){
       currentDateMinMs = currentDateMaxMs;
     }
   } else {
     currentDateMinMs = msStart;
     if(dateRangeEnabled){
-      // if in range mode and from > to, carry to along
       if(Number.isFinite(currentDateMaxMs) && currentDateMinMs > currentDateMaxMs){
         currentDateMaxMs = currentDateMinMs;
       }
@@ -2076,7 +2179,63 @@ function applyDatePicker(){
   render();
 }
 
-  function parseLocalInputToMs(val){
+// Bind picker controls once
+(function bindDatePickerUI(){
+  const p = getPickerEls();
+  if(!p) return;
+
+  // step pills (allow direct jump, but still one wheel at a time)
+  p.pills.forEach(btn => {
+    btn.addEventListener('click', () => setActiveStep(btn.dataset.step));
+  });
+
+  if(p.back) p.back.addEventListener('click', () => {
+    if(pickerStep === 'month') setActiveStep('day');
+    else if(pickerStep === 'year') setActiveStep('month');
+  });
+
+  if(p.next) p.next.addEventListener('click', () => {
+    if(pickerStep === 'day') setActiveStep('month');
+    else if(pickerStep === 'month') setActiveStep('year');
+  });
+
+  if(els.datePickerCancel) els.datePickerCancel.addEventListener('click', () => closeDatePicker());
+  if(els.datePickerDone) els.datePickerDone.addEventListener('click', () => { applyDatePicker(); closeDatePicker(); });
+
+  // click outside closes
+  p.modal.addEventListener('click', (e) => {
+    if(e.target === p.modal) closeDatePicker();
+  });
+
+  // typing support
+  if(p.text){
+    const applyText = () => {
+      const ms = parseUKDateText(p.text.value);
+      if(ms == null) return; // invalid, keep as-is
+      const d = new Date(ms);
+      pickerState.year = d.getFullYear();
+      pickerState.month = d.getMonth();
+      pickerState.day = d.getDate();
+      setActiveStep('day'); // rebuild wheel with new values
+    };
+
+    p.text.addEventListener('change', applyText);
+    p.text.addEventListener('keydown', (e) => {
+      if(e.key === 'Enter'){
+        e.preventDefault();
+        applyText();
+      }
+    });
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'Escape' && p.modal.classList.contains('show')){
+      closeDatePicker();
+    }
+  });
+})();
+
+function parseLocalInputToMs(val){
     const s = String(val || '').trim();
     if(!s) return null;
     // datetime-local string is treated as local time.
